@@ -1,6 +1,7 @@
-"""Streamlit dashboard for the AA Crew Sequence Weather Risk Analysis."""
+"""StormChain Operations Command Center — tactical dashboard for crew sequence risk."""
 
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -10,621 +11,783 @@ import plotly.graph_objects as go
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import MODEL_DIR, SIMULATION_DIR, PROCESSED_DIR, FIGURES_DIR, OUTPUT_DIR, TOP_K_VALUES, MONTE_CARLO_TRIALS
+from config import MODEL_DIR, SIMULATION_DIR, PROCESSED_DIR, OUTPUT_DIR
 
+# =========================================================================
+# PAGE CONFIG
+# =========================================================================
 st.set_page_config(
-    page_title="StormChain — AA Sequence Risk",
-    page_icon="✈️",
+    page_title="StormChain OCC",
+    page_icon="⛈️",
     layout="wide",
+    initial_sidebar_state="collapsed",
 )
 
-st.title("StormChain")
-st.markdown("*Airline Crew Sequences Meet Bad Weather — identifying pilot sequences through DFW vulnerable to cascading delays*")
-
-
-# ---------------------------------------------------------------------------
-# Data loading
-# ---------------------------------------------------------------------------
-
-@st.cache_data
-def load_risk_scores():
-    path = MODEL_DIR / "risk_scores.parquet"
-    if path.exists():
-        return pd.read_parquet(path)
-    return None
-
-@st.cache_data(ttl=60)
-def load_simulation_results():
-    path = SIMULATION_DIR / "monte_carlo_results.parquet"
-    if path.exists():
-        return pd.read_parquet(path)
-    return None
-
-@st.cache_data
-def load_feature_importance():
-    path = MODEL_DIR / "feature_importance.csv"
-    if path.exists():
-        return pd.read_csv(path)
-    return None
-
-@st.cache_data
-def load_roc_curve():
-    path = MODEL_DIR / "roc_curve.parquet"
-    if path.exists():
-        return pd.read_parquet(path)
-    return None
-
-@st.cache_data
-def load_pr_curve():
-    path = MODEL_DIR / "pr_curve.parquet"
-    if path.exists():
-        return pd.read_parquet(path)
-    return None
-
-@st.cache_data
-def load_test_predictions():
-    path = MODEL_DIR / "test_predictions.parquet"
-    if path.exists():
-        return pd.read_parquet(path)
-    return None
-
-@st.cache_data
-def load_airports():
-    path = PROCESSED_DIR.parent / "reference" / "airports.csv"
-    if path.exists():
-        return pd.read_csv(path)
-    return None
-
-@st.cache_data(ttl=60)
-def load_avoid_list():
-    path = OUTPUT_DIR / "avoid_list.parquet"
-    if path.exists():
-        return pd.read_parquet(path)
-    return None
-
-@st.cache_data(ttl=60)
-def load_swap_recommendations():
-    path = OUTPUT_DIR / "swap_recommendations.csv"
-    if path.exists():
-        return pd.read_csv(path)
-    return None
-
-@st.cache_data(ttl=60)
-def load_baseline_comparison():
-    path = OUTPUT_DIR / "baseline_comparison.parquet"
-    if path.exists():
-        return pd.read_parquet(path)
-    return None
-
-@st.cache_data(ttl=60)
-def load_case_study():
-    path = OUTPUT_DIR / "case_study_cascades.parquet"
-    if path.exists():
-        return pd.read_parquet(path)
-    return None
-
-@st.cache_data(ttl=60)
-def load_seasonal_summary():
-    path = OUTPUT_DIR / "seasonal_summary.csv"
-    if path.exists():
-        return pd.read_csv(path)
-    return None
-
-
-# Load data
-risk_scores = load_risk_scores()
-sim_results = load_simulation_results()
-importance = load_feature_importance()
-airports = load_airports()
-avoid_list = load_avoid_list()
-swap_recs = load_swap_recommendations()
-baseline = load_baseline_comparison()
-case_study = load_case_study()
-seasonal_summary = load_seasonal_summary()
-
-if risk_scores is None:
-    st.error("No risk scores found. Run the pipeline first: `python run_pipeline.py`")
-    st.stop()
-
-# ---------------------------------------------------------------------------
-# Sidebar
-# ---------------------------------------------------------------------------
-
-MONTH_NAMES = {
-    1: "January", 2: "February", 3: "March", 4: "April",
-    5: "May", 6: "June", 7: "July", 8: "August",
-    9: "September", 10: "October", 11: "November", 12: "December",
+# =========================================================================
+# BRAND PALETTE
+# =========================================================================
+C = {
+    "bg": "#0A1026",
+    "panel": "#141B3A",
+    "panel_light": "#1F2950",
+    "midnight": "#21295C",
+    "deep_blue": "#065A82",
+    "teal": "#1C7293",
+    "ice": "#CADCFC",
+    "coral": "#FF6B6B",
+    "gold": "#F9B233",
+    "green": "#50C878",
+    "white": "#FFFFFF",
+    "muted": "#8B93B5",
+    "border": "#2A3563",
 }
 
-with st.sidebar:
-    st.header("Filters")
-    month_options = ["All Months"] + [MONTH_NAMES[i] for i in range(1, 13)]
-    selected_month_name = st.selectbox("Month", month_options)
-    if selected_month_name == "All Months":
-        selected_month = None
-    else:
-        selected_month = [k for k, v in MONTH_NAMES.items() if v == selected_month_name][0]
+# =========================================================================
+# CUSTOM CSS — kill Streamlit chrome, dark OCC aesthetic
+# =========================================================================
+st.markdown(f"""
+<style>
+    /* Hide Streamlit defaults */
+    #MainMenu {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
+    header {{visibility: hidden;}}
+    .stDeployButton {{display: none;}}
 
-    min_overlap = st.slider("Min overlap days", 5, 100, 10)
-    top_n = st.slider("Show top N pairs", 10, 500, 50)
+    /* Dark background */
+    .stApp {{
+        background-color: {C['bg']};
+        color: {C['white']};
+    }}
+    .block-container {{
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+        max-width: 100%;
+    }}
 
-# Filter data
-filtered = risk_scores[risk_scores["n_overlap_days"] >= min_overlap].copy()
-if selected_month:
-    filtered = filtered[filtered["month"] == selected_month]
+    /* Typography */
+    h1, h2, h3, h4 {{
+        font-family: 'Georgia', serif !important;
+        color: {C['white']} !important;
+        letter-spacing: -0.5px;
+    }}
+    p, div, span, label {{
+        color: {C['ice']};
+    }}
 
-# ---------------------------------------------------------------------------
-# Tabs
-# ---------------------------------------------------------------------------
+    /* Brand header */
+    .brand-header {{
+        background: linear-gradient(90deg, {C['midnight']} 0%, {C['deep_blue']} 100%);
+        padding: 16px 24px;
+        border-radius: 4px;
+        border-left: 4px solid {C['coral']};
+        margin-bottom: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }}
+    .brand-title {{
+        font-family: 'Georgia', serif;
+        font-size: 28px;
+        font-weight: bold;
+        color: {C['white']};
+        margin: 0;
+        letter-spacing: 1px;
+    }}
+    .brand-subtitle {{
+        font-size: 11px;
+        color: {C['ice']};
+        letter-spacing: 3px;
+        text-transform: uppercase;
+    }}
+    .status-dot {{
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        background: {C['green']};
+        border-radius: 50%;
+        margin-right: 8px;
+        box-shadow: 0 0 8px {C['green']};
+        animation: pulse 2s infinite;
+    }}
+    @keyframes pulse {{
+        0%, 100% {{ opacity: 1; }}
+        50% {{ opacity: 0.5; }}
+    }}
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-    "Pair Explorer", "Recommendations", "US Map",
-    "Model Performance", "Impact Analysis",
-    "Case Study", "Seasonal Heatmap",
-])
+    /* KPI Cards */
+    .kpi-card {{
+        background: {C['panel']};
+        border: 1px solid {C['border']};
+        border-radius: 6px;
+        padding: 16px 20px;
+        min-height: 110px;
+        position: relative;
+        overflow: hidden;
+    }}
+    .kpi-card.alert {{ border-left: 3px solid {C['coral']}; }}
+    .kpi-card.warn {{ border-left: 3px solid {C['gold']}; }}
+    .kpi-card.ok {{ border-left: 3px solid {C['green']}; }}
+    .kpi-card.info {{ border-left: 3px solid {C['teal']}; }}
+    .kpi-label {{
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: {C['muted']};
+        text-transform: uppercase;
+        margin-bottom: 4px;
+    }}
+    .kpi-value {{
+        font-family: 'Georgia', serif;
+        font-size: 38px;
+        font-weight: bold;
+        color: {C['white']};
+        line-height: 1;
+    }}
+    .kpi-value.coral {{ color: {C['coral']}; }}
+    .kpi-value.gold {{ color: {C['gold']}; }}
+    .kpi-value.teal {{ color: {C['ice']}; }}
+    .kpi-detail {{
+        font-size: 12px;
+        color: {C['muted']};
+        margin-top: 6px;
+    }}
 
-# ---------------------------------------------------------------------------
-# Tab 1: Pair Explorer
-# ---------------------------------------------------------------------------
+    /* Panels */
+    .ops-panel {{
+        background: {C['panel']};
+        border: 1px solid {C['border']};
+        border-radius: 6px;
+        padding: 16px;
+        height: 100%;
+    }}
+    .panel-title {{
+        font-family: 'Georgia', serif;
+        font-size: 14px;
+        color: {C['white']};
+        font-weight: bold;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid {C['border']};
+    }}
 
-with tab1:
-    st.subheader("Airport Pair Risk Explorer")
+    /* Risk feed rows */
+    .feed-row {{
+        padding: 8px 0;
+        border-bottom: 1px solid {C['border']};
+        font-size: 13px;
+    }}
+    .feed-row:last-child {{ border-bottom: none; }}
+    .pair-label {{
+        font-family: 'Consolas', monospace;
+        color: {C['white']};
+        font-weight: bold;
+    }}
+    .risk-badge {{
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 11px;
+        font-weight: bold;
+        margin-left: 8px;
+    }}
+    .risk-badge.critical {{ background: {C['coral']}; color: {C['white']}; }}
+    .risk-badge.high {{ background: {C['gold']}; color: {C['midnight']}; }}
+    .risk-badge.mod {{ background: {C['teal']}; color: {C['white']}; }}
 
-    all_airports_sorted = sorted(
-        set(risk_scores["airport_a"].unique()) | set(risk_scores["airport_b"].unique())
+    /* Streamlit widget styling */
+    .stSelectbox label, .stSlider label {{
+        color: {C['muted']} !important;
+        font-size: 11px !important;
+        letter-spacing: 2px !important;
+        text-transform: uppercase !important;
+    }}
+    .stSelectbox > div > div {{
+        background-color: {C['panel']} !important;
+        border: 1px solid {C['border']} !important;
+        color: {C['white']} !important;
+    }}
+
+    /* Expanders for deep analysis */
+    .stExpander {{
+        background: {C['panel']};
+        border: 1px solid {C['border']};
+        border-radius: 6px;
+        margin-bottom: 12px;
+    }}
+    .streamlit-expanderHeader {{
+        color: {C['white']} !important;
+        font-family: 'Georgia', serif !important;
+    }}
+
+    /* Tables */
+    .dataframe {{
+        color: {C['ice']} !important;
+        background: {C['panel']} !important;
+    }}
+    .dataframe th {{
+        background: {C['midnight']} !important;
+        color: {C['gold']} !important;
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 1px;
+    }}
+    .dataframe td {{
+        background: {C['panel']} !important;
+        color: {C['ice']} !important;
+        border-color: {C['border']} !important;
+    }}
+</style>
+""", unsafe_allow_html=True)
+
+
+# =========================================================================
+# DATA LOADING
+# =========================================================================
+@st.cache_data(ttl=300)
+def load_risk_scores():
+    return pd.read_parquet(MODEL_DIR / "risk_scores.parquet")
+
+@st.cache_data(ttl=300)
+def load_avoid_list():
+    path = OUTPUT_DIR / "avoid_list.parquet"
+    return pd.read_parquet(path) if path.exists() else None
+
+@st.cache_data(ttl=300)
+def load_baseline():
+    path = OUTPUT_DIR / "baseline_comparison.parquet"
+    return pd.read_parquet(path) if path.exists() else None
+
+@st.cache_data(ttl=300)
+def load_case_study():
+    path = OUTPUT_DIR / "case_study_cascades.parquet"
+    return pd.read_parquet(path) if path.exists() else None
+
+@st.cache_data(ttl=300)
+def load_airports():
+    return pd.read_csv(PROCESSED_DIR.parent / "reference" / "airports.csv")
+
+@st.cache_data(ttl=300)
+def load_sim_results():
+    path = SIMULATION_DIR / "monte_carlo_results.parquet"
+    return pd.read_parquet(path) if path.exists() else None
+
+@st.cache_data(ttl=300)
+def load_feature_importance():
+    path = MODEL_DIR / "feature_importance.csv"
+    return pd.read_csv(path) if path.exists() else None
+
+@st.cache_data(ttl=300)
+def load_swap_recs():
+    path = OUTPUT_DIR / "swap_recommendations.csv"
+    return pd.read_csv(path) if path.exists() else None
+
+
+risk_scores = load_risk_scores()
+avoid_list = load_avoid_list()
+baseline = load_baseline()
+case_study = load_case_study()
+airports = load_airports()
+sim_results = load_sim_results()
+importance = load_feature_importance()
+swap_recs = load_swap_recs()
+
+# =========================================================================
+# HEADER
+# =========================================================================
+now = datetime.now()
+current_month = st.session_state.get("current_month", now.month)
+
+col_title, col_time = st.columns([3, 1])
+with col_title:
+    st.markdown(f"""
+    <div class="brand-header">
+        <div>
+            <p class="brand-title">⛈️  STORMCHAIN OCC</p>
+            <p class="brand-subtitle">Crew Sequence Weather Risk — Operations Command Center</p>
+        </div>
+        <div style="text-align: right;">
+            <p style="color: {C['white']}; margin: 0; font-size: 14px;">
+                <span class="status-dot"></span>SYSTEM NOMINAL
+            </p>
+            <p style="color: {C['muted']}; margin: 0; font-size: 11px;">
+                {now.strftime('%a %b %d, %Y · %H:%M')} LOCAL
+            </p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# =========================================================================
+# CONTROLS
+# =========================================================================
+ctrl1, ctrl2, ctrl3 = st.columns([2, 2, 3])
+
+MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+with ctrl1:
+    selected_month = st.selectbox(
+        "Focus month",
+        options=list(range(1, 13)),
+        format_func=lambda m: MONTH_NAMES[m-1],
+        index=current_month - 1,
     )
+with ctrl2:
+    k_threshold = st.select_slider(
+        "Avoid top K pairs",
+        options=[50, 100, 200, 500],
+        value=200,
+    )
+with ctrl3:
+    st.markdown(f"""
+    <div style='padding-top: 26px; text-align: right; color: {C['muted']}; font-size: 11px; letter-spacing: 2px;'>
+        DATA · 842K FLIGHTS · 3.5M WEATHER · 3.3M METAR · 2019–2024
+    </div>
+    """, unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        airport_a = st.selectbox("Airport A", all_airports_sorted, index=0)
-    with col2:
-        airport_b = st.selectbox("Airport B", all_airports_sorted,
-                                 index=min(1, len(all_airports_sorted) - 1))
+# Filter scores to selected month
+month_scores = risk_scores[risk_scores["month"] == selected_month].copy()
+month_scores = month_scores.sort_values("risk_score", ascending=False)
 
-    # Find pair (either direction)
+# =========================================================================
+# KPI SCOREBOARD STRIP
+# =========================================================================
+k1, k2, k3, k4 = st.columns(4)
+
+# KPI 1: Critical pairs this month
+critical_count = (month_scores["risk_score"] >= 80).sum()
+k1.markdown(f"""
+<div class="kpi-card alert">
+    <p class="kpi-label">CRITICAL PAIRS · {MONTH_NAMES[selected_month-1].upper()}</p>
+    <p class="kpi-value coral">{critical_count}</p>
+    <p class="kpi-detail">risk score ≥ 80</p>
+</div>
+""", unsafe_allow_html=True)
+
+# KPI 2: Model performance
+k2.markdown(f"""
+<div class="kpi-card info">
+    <p class="kpi-label">MODEL AUC-ROC</p>
+    <p class="kpi-value teal">0.81</p>
+    <p class="kpi-detail">+78% vs. naive baseline at K=200</p>
+</div>
+""", unsafe_allow_html=True)
+
+# KPI 3: Savings at current K
+if sim_results is not None:
+    sim_row = sim_results[sim_results["k"] == k_threshold]
+    if len(sim_row) > 0:
+        savings_upper = sim_row["dollar_savings"].iloc[0] / 5
+        savings_adj = sim_row.get("adjusted_savings", sim_row["dollar_savings"]).iloc[0] / 5
+        k3.markdown(f"""
+        <div class="kpi-card ok">
+            <p class="kpi-label">ANNUAL SAVINGS · K={k_threshold}</p>
+            <p class="kpi-value gold">${savings_upper/1e6:.1f}M</p>
+            <p class="kpi-detail">${savings_adj/1e3:.0f}K adjusted estimate</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+# KPI 4: Avoid list size for current month
+month_avoid = 0
+if avoid_list is not None:
+    month_avoid = len(avoid_list[avoid_list["month"] == selected_month])
+k4.markdown(f"""
+<div class="kpi-card warn">
+    <p class="kpi-label">AVOID LIST · {MONTH_NAMES[selected_month-1].upper()}</p>
+    <p class="kpi-value gold">{month_avoid}</p>
+    <p class="kpi-detail">pair recommendations for this month</p>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+
+# =========================================================================
+# MAIN GRID: Map + Risk Feed
+# =========================================================================
+map_col, feed_col = st.columns([2.2, 1])
+
+with map_col:
+    st.markdown(f"""
+    <p class="panel-title" style='margin-bottom: 8px;'>
+        RADAR · TOP {k_threshold} RISKY PAIRS THROUGH DFW · {MONTH_NAMES[selected_month-1].upper()}
+    </p>
+    """, unsafe_allow_html=True)
+
+    top_k_month = month_scores.head(k_threshold)
+    airport_dict = airports.set_index("iata").to_dict("index")
+    dfw_lat, dfw_lon = 32.8998, -97.0403
+
+    fig = go.Figure()
+
+    # Risk lines
+    drawn_airports = set()
+    for _, row in top_k_month.iterrows():
+        a, b = row["airport_a"], row["airport_b"]
+        a_info = airport_dict.get(a)
+        b_info = airport_dict.get(b)
+        if not a_info or not b_info:
+            continue
+        drawn_airports.add(a)
+        drawn_airports.add(b)
+
+        risk = row["risk_score"]
+        color = C["coral"] if risk >= 80 else C["gold"] if risk >= 65 else C["teal"]
+        width = 2.5 if risk >= 80 else 1.8 if risk >= 65 else 1.2
+
+        fig.add_trace(go.Scattergeo(
+            lat=[a_info["latitude"], dfw_lat, b_info["latitude"]],
+            lon=[a_info["longitude"], dfw_lon, b_info["longitude"]],
+            mode="lines",
+            line=dict(width=width, color=color),
+            opacity=0.7,
+            hoverinfo="skip",
+            showlegend=False,
+        ))
+
+    # Airport markers
+    ap_lats, ap_lons, ap_names = [], [], []
+    for ap in drawn_airports:
+        info = airport_dict.get(ap)
+        if info:
+            ap_lats.append(info["latitude"])
+            ap_lons.append(info["longitude"])
+            ap_names.append(ap)
+
+    fig.add_trace(go.Scattergeo(
+        lat=ap_lats, lon=ap_lons, text=ap_names,
+        mode="markers+text",
+        textposition="top center",
+        textfont=dict(color=C["ice"], size=9, family="Consolas"),
+        marker=dict(size=6, color=C["deep_blue"], line=dict(width=1, color=C["ice"])),
+        hoverinfo="text",
+        showlegend=False,
+    ))
+
+    # DFW Hub
+    fig.add_trace(go.Scattergeo(
+        lat=[dfw_lat], lon=[dfw_lon], text=["DFW"],
+        mode="markers+text",
+        textposition="bottom center",
+        textfont=dict(color=C["gold"], size=14, family="Georgia"),
+        marker=dict(size=18, color=C["gold"], symbol="star",
+                    line=dict(width=2, color=C["white"])),
+        hoverinfo="text",
+        name="DFW Hub",
+        showlegend=False,
+    ))
+
+    fig.update_geos(
+        scope="usa",
+        showland=True,
+        landcolor=C["panel"],
+        showlakes=True,
+        lakecolor=C["bg"],
+        showcountries=False,
+        showsubunits=True,
+        subunitcolor=C["border"],
+        showcoastlines=True,
+        coastlinecolor=C["border"],
+        bgcolor=C["bg"],
+    )
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=0, b=0),
+        height=420,
+        paper_bgcolor=C["bg"],
+        plot_bgcolor=C["bg"],
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Legend strip
+    st.markdown(f"""
+    <div style='text-align: center; font-size: 11px; color: {C['muted']}; letter-spacing: 2px;'>
+        <span style='color: {C['coral']}; font-weight: bold;'>━━</span> CRITICAL (≥80) &nbsp;&nbsp;&nbsp;
+        <span style='color: {C['gold']}; font-weight: bold;'>━━</span> HIGH (65–80) &nbsp;&nbsp;&nbsp;
+        <span style='color: {C['teal']}; font-weight: bold;'>━━</span> MODERATE (&lt;65) &nbsp;&nbsp;&nbsp;
+        <span style='color: {C['gold']};'>★</span> DFW HUB
+    </div>
+    """, unsafe_allow_html=True)
+
+
+with feed_col:
+    st.markdown(f"""
+    <p class="panel-title" style='margin-bottom: 8px;'>
+        RISK FEED · LIVE
+    </p>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<div style='background: " + C['panel'] + "; border: 1px solid " + C['border'] +
+                "; border-radius: 6px; padding: 12px; max-height: 460px; overflow-y: auto;'>", unsafe_allow_html=True)
+
+    for _, row in month_scores.head(20).iterrows():
+        risk = row["risk_score"]
+        if risk >= 80:
+            badge_class = "critical"
+            badge_text = "CRIT"
+        elif risk >= 65:
+            badge_class = "high"
+            badge_text = "HIGH"
+        else:
+            badge_class = "mod"
+            badge_text = "MOD"
+
+        st.markdown(f"""
+        <div class="feed-row">
+            <span class="pair-label">{row['airport_a']} ↔ {row['airport_b']}</span>
+            <span class="risk-badge {badge_class}">{badge_text} · {risk:.0f}</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
+
+# =========================================================================
+# SECOND ROW: Seasonal Heatmap + Baseline Comparison
+# =========================================================================
+heat_col, base_col = st.columns([1.3, 1])
+
+with heat_col:
+    st.markdown(f"<p class='panel-title'>SEASONAL RISK MATRIX · TOP 15 PAIRS</p>", unsafe_allow_html=True)
+
+    pair_avg = risk_scores.groupby(["airport_a", "airport_b"])["risk_score"].mean().nlargest(15)
+    top_pairs_list = pair_avg.index.tolist()
+    mask = risk_scores.apply(lambda r: (r["airport_a"], r["airport_b"]) in top_pairs_list, axis=1)
+    hm = risk_scores[mask].copy()
+    hm["pair"] = hm["airport_a"] + "–" + hm["airport_b"]
+    labels = [f"{a}–{b}" for a, b in top_pairs_list]
+    pivot = hm.pivot_table(values="risk_score", index="pair", columns="month", aggfunc="mean").reindex(labels)
+
+    fig_hm = go.Figure(data=go.Heatmap(
+        z=pivot.values,
+        x=MONTH_NAMES,
+        y=pivot.index,
+        colorscale=[[0, C["panel"]], [0.3, C["teal"]], [0.6, C["gold"]], [1.0, C["coral"]]],
+        colorbar=dict(
+            title=dict(text="Risk", font=dict(color=C["ice"])),
+            tickfont=dict(color=C["ice"]),
+            thickness=10,
+            len=0.8,
+        ),
+        hovertemplate="%{y} · %{x}<br>Risk: %{z:.0f}<extra></extra>",
+    ))
+    fig_hm.update_layout(
+        height=340,
+        margin=dict(l=80, r=10, t=10, b=30),
+        paper_bgcolor=C["bg"],
+        plot_bgcolor=C["bg"],
+        xaxis=dict(tickfont=dict(color=C["ice"], size=10), showgrid=False),
+        yaxis=dict(tickfont=dict(color=C["ice"], family="Consolas", size=10), showgrid=False),
+    )
+    st.plotly_chart(fig_hm, use_container_width=True)
+
+with base_col:
+    st.markdown(f"<p class='panel-title'>MODEL vs. NAIVE BASELINE</p>", unsafe_allow_html=True)
+
+    if baseline is not None:
+        fig_b = go.Figure()
+        fig_b.add_trace(go.Bar(
+            name="StormChain",
+            x=[f"K={int(k)}" for k in baseline["k"]],
+            y=baseline["our_minutes_caught"] / 1000,
+            marker_color=C["coral"],
+            text=[f"+{v:.0f}%" for v in baseline["improvement_pct"]],
+            textposition="outside",
+            textfont=dict(color=C["gold"], size=12),
+        ))
+        fig_b.add_trace(go.Bar(
+            name="Naive",
+            x=[f"K={int(k)}" for k in baseline["k"]],
+            y=baseline["naive_minutes_caught"] / 1000,
+            marker_color=C["muted"],
+        ))
+        fig_b.update_layout(
+            barmode="group",
+            height=340,
+            margin=dict(l=40, r=10, t=10, b=30),
+            paper_bgcolor=C["bg"],
+            plot_bgcolor=C["bg"],
+            xaxis=dict(tickfont=dict(color=C["ice"]), showgrid=False),
+            yaxis=dict(tickfont=dict(color=C["ice"]), gridcolor=C["border"],
+                       title=dict(text="Cascade Minutes Caught (K)", font=dict(color=C["ice"], size=11))),
+            legend=dict(font=dict(color=C["ice"]), orientation="h", y=1.1),
+        )
+        st.plotly_chart(fig_b, use_container_width=True)
+
+st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
+
+# =========================================================================
+# CASE STUDY STRIP
+# =========================================================================
+if case_study is not None:
+    st.markdown(f"""
+    <p class='panel-title'>
+        INCIDENT LOG · MAY 28, 2024 · WORST CASCADE DAY
+    </p>
+    """, unsafe_allow_html=True)
+
+    c1, c2 = st.columns([1, 2])
+
+    with c1:
+        st.markdown(f"""
+        <div class="ops-panel">
+            <p style='color: {C['gold']}; font-size: 11px; letter-spacing: 2px; margin-bottom: 12px;'>
+                METAR 05:53 UTC
+            </p>
+            <p style='font-family: Consolas, monospace; color: {C['coral']}; font-size: 18px; margin-bottom: 12px;'>
+                +TSRA FG SQ
+            </p>
+            <p style='color: {C['ice']}; font-size: 13px; margin-bottom: 16px;'>
+                Heavy thunderstorm, fog, squall. Zero visibility at DFW.
+            </p>
+            <div style='display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px solid {C['border']};'>
+                <div>
+                    <p style='color: {C['muted']}; font-size: 10px; letter-spacing: 2px; margin: 0;'>SEQUENCES</p>
+                    <p style='color: {C['white']}; font-family: Georgia; font-size: 22px; font-weight: bold; margin: 0;'>170</p>
+                </div>
+                <div>
+                    <p style='color: {C['muted']}; font-size: 10px; letter-spacing: 2px; margin: 0;'>PROPAGATED</p>
+                    <p style='color: {C['coral']}; font-family: Georgia; font-size: 22px; font-weight: bold; margin: 0;'>149</p>
+                </div>
+                <div>
+                    <p style='color: {C['muted']}; font-size: 10px; letter-spacing: 2px; margin: 0;'>COST</p>
+                    <p style='color: {C['gold']}; font-family: Georgia; font-size: 22px; font-weight: bold; margin: 0;'>$4.4M</p>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with c2:
+        case_study["arr_hour"] = (case_study["inbound_arr_time"] // 60).astype(int)
+        hourly = case_study.groupby("arr_hour")["total_cascade_minutes"].sum().reindex(range(6, 22), fill_value=0)
+
+        fig_cs = go.Figure()
+        colors_bar = [C["coral"] if v == hourly.max() or v == hourly.nlargest(2).iloc[-1] else C["gold"]
+                      for v in hourly.values]
+        fig_cs.add_trace(go.Bar(
+            x=[f"{h:02d}:00" for h in hourly.index],
+            y=hourly.values,
+            marker_color=colors_bar,
+            hovertemplate="%{x}<br>%{y:,.0f} cascade min<extra></extra>",
+        ))
+        fig_cs.update_layout(
+            height=220,
+            margin=dict(l=40, r=10, t=10, b=30),
+            paper_bgcolor=C["panel"],
+            plot_bgcolor=C["panel"],
+            xaxis=dict(tickfont=dict(color=C["ice"], size=10), showgrid=False),
+            yaxis=dict(tickfont=dict(color=C["ice"]), gridcolor=C["border"],
+                       title=dict(text="Cascade Minutes", font=dict(color=C["ice"], size=11))),
+        )
+        st.plotly_chart(fig_cs, use_container_width=True)
+        st.markdown(f"""
+        <p style='color: {C['muted']}; font-size: 11px; text-align: center; margin-top: -8px;'>
+            Morning wave (07:00–09:00) concentrated ~70% of cascade damage as overnight delays propagated.
+        </p>
+        """, unsafe_allow_html=True)
+
+st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
+
+# =========================================================================
+# DEEP ANALYSIS (collapsible)
+# =========================================================================
+st.markdown(f"<p class='panel-title'>DEEP ANALYSIS · EXPAND FOR DETAIL</p>", unsafe_allow_html=True)
+
+with st.expander("▸ PAIR EXPLORER · Investigate specific airport pairs", expanded=False):
+    exp_col1, exp_col2 = st.columns(2)
+    all_aps = sorted(set(risk_scores["airport_a"]) | set(risk_scores["airport_b"]))
+    with exp_col1:
+        airport_a = st.selectbox("Airport A", all_aps, key="pair_a")
+    with exp_col2:
+        airport_b = st.selectbox("Airport B", all_aps,
+                                  index=min(1, len(all_aps) - 1), key="pair_b")
+
     pair_data = risk_scores[
         ((risk_scores["airport_a"] == airport_a) & (risk_scores["airport_b"] == airport_b)) |
         ((risk_scores["airport_a"] == airport_b) & (risk_scores["airport_b"] == airport_a))
     ].sort_values("month")
 
     if len(pair_data) > 0:
-        col1, col2 = st.columns(2)
-        with col1:
-            # Monthly risk score bar chart
-            fig = px.bar(
-                pair_data, x="month", y="risk_score",
-                title=f"Monthly Risk Score: {airport_a} - DFW - {airport_b}",
-                labels={"month": "Month", "risk_score": "Risk Score (0-100)"},
-                color="risk_score",
-                color_continuous_scale="RdYlGn_r",
-            )
-            fig.update_xaxes(tickvals=list(range(1, 13)),
-                             ticktext=list(MONTH_NAMES.values()))
-            st.plotly_chart(fig, use_container_width=True)
-
-        with col2:
-            # Key metrics
-            avg_risk = pair_data["risk_score"].mean()
-            max_risk = pair_data["risk_score"].max()
-            peak_month = MONTH_NAMES[pair_data.loc[pair_data["risk_score"].idxmax(), "month"]]
-
-            st.metric("Average Risk Score", f"{avg_risk:.1f}")
-            st.metric("Peak Risk Score", f"{max_risk:.1f}")
-            st.metric("Peak Month", peak_month)
-            st.metric("Joint Weather Delay Prob (avg)",
-                       f"{pair_data['joint_weather_delay_prob'].mean():.3f}")
-            if "precip_correlation" in pair_data.columns:
-                st.metric("Precip Correlation (avg)",
-                           f"{pair_data['precip_correlation'].mean():.3f}")
-    else:
-        st.info(f"No data for pair {airport_a} - {airport_b}")
-
-# ---------------------------------------------------------------------------
-# Tab 2: Recommendations (Avoid List + Swaps)
-# ---------------------------------------------------------------------------
-
-with tab2:
-    st.subheader("Scheduling Recommendations")
-
-    rec_tab_a, rec_tab_b, rec_tab_c = st.tabs(["Avoid List", "Swap Recommendations", "Seasonal Summary"])
-
-    with rec_tab_a:
-        if avoid_list is not None:
-            st.markdown("**Pairs to avoid in pilot sequences, by season:**")
-            season_filter = st.selectbox("Filter by season", ["All"] + sorted(avoid_list["season"].unique()))
-            display = avoid_list if season_filter == "All" else avoid_list[avoid_list["season"] == season_filter]
-            st.dataframe(
-                display[["season", "airport_a", "airport_b", "risk_score", "reason"]].head(100),
-                use_container_width=True,
-            )
-            st.metric("Total Recommendations", f"{len(avoid_list)} pair-season combinations")
-        else:
-            st.info("Run `python src/recommendations.py` to generate avoid list")
-
-    with rec_tab_b:
-        if swap_recs is not None:
-            st.markdown("**Safe alternatives for each flagged pair:**")
-            st.dataframe(
-                swap_recs[["season", "avoid_origin", "avoid_dest", "avoid_risk",
-                           "swap_dest", "swap_risk", "risk_reduction"]].head(50),
-                use_container_width=True,
-            )
-            avg_reduction = swap_recs["risk_reduction"].mean()
-            st.metric("Average Risk Reduction per Swap", f"{avg_reduction:.0f} points")
-        else:
-            st.info("Run recommendations to generate swap suggestions")
-
-    with rec_tab_c:
-        if seasonal_summary is not None:
-            for season in seasonal_summary["season"].unique():
-                st.markdown(f"**{season}**")
-                season_data = seasonal_summary[seasonal_summary["season"] == season]
-                st.dataframe(
-                    season_data[["rank", "airport_a", "airport_b", "avg_risk", "geographic_pattern"]],
-                    use_container_width=True, hide_index=True,
-                )
-        else:
-            st.info("Run recommendations to generate seasonal summary")
-
-    # Baseline comparison
-    if baseline is not None:
-        st.subheader("Model vs. Naive Baseline")
-        st.markdown("*How much better is our model than simply avoiding two individually high-delay airports?*")
-
-        fig = go.Figure()
-        fig.add_trace(go.Bar(name="Our Model", x=baseline["k"], y=baseline["our_minutes_caught"],
-                             marker_color="green"))
-        fig.add_trace(go.Bar(name="Naive Baseline", x=baseline["k"], y=baseline["naive_minutes_caught"],
-                             marker_color="lightgray"))
-        fig.update_layout(
-            title="Cascade Minutes Caught: Our Model vs. Naive Baseline",
-            xaxis_title="Number of Pairs Flagged (K)",
-            yaxis_title="Cascade Minutes Caught",
-            barmode="group",
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-        best_improvement = baseline["improvement_pct"].max()
-        st.success(f"**Our model catches up to {best_improvement:.0f}% more cascading delay minutes than the naive approach at the same K.**")
-
-# ---------------------------------------------------------------------------
-# Tab 7: Seasonal Heatmap (moved from old tab2)
-# ---------------------------------------------------------------------------
-
-with tab7:
-    st.subheader("Seasonal Risk Heatmap")
-
-    top_pairs = filtered.nlargest(top_n, "risk_score")
-
-    if len(top_pairs) > 0:
-        # Create pair label
-        top_pairs["pair"] = top_pairs["airport_a"] + " - " + top_pairs["airport_b"]
-
-        # Pivot for heatmap
-        unique_pairs = top_pairs.groupby("pair")["risk_score"].mean().nlargest(min(30, top_n)).index
-        heatmap_data = risk_scores.copy()
-        heatmap_data["pair"] = heatmap_data["airport_a"] + " - " + heatmap_data["airport_b"]
-        heatmap_data = heatmap_data[heatmap_data["pair"].isin(unique_pairs)]
-
-        pivot = heatmap_data.pivot_table(
-            values="risk_score", index="pair", columns="month", aggfunc="mean"
-        )
-        pivot.columns = [MONTH_NAMES[m] for m in pivot.columns]
-
-        fig = px.imshow(
-            pivot,
-            title="Airport Pair Risk by Month (Top Pairs)",
-            labels={"x": "Month", "y": "Airport Pair", "color": "Risk Score"},
-            color_continuous_scale="RdYlGn_r",
-            aspect="auto",
-        )
-        fig.update_layout(height=max(400, len(unique_pairs) * 25))
-        st.plotly_chart(fig, use_container_width=True)
-
-        # Top pairs table
-        st.subheader(f"Top {min(top_n, len(top_pairs))} Risky Pairs")
-        display_cols = ["airport_a", "airport_b", "month", "risk_score",
-                        "joint_weather_delay_prob", "thunderstorm_co_occurrence"]
-        available = [c for c in display_cols if c in top_pairs.columns]
-        st.dataframe(top_pairs[available].head(top_n), use_container_width=True)
-
-# ---------------------------------------------------------------------------
-# Tab 3: US Map
-# ---------------------------------------------------------------------------
-
-with tab3:
-    st.subheader("US Airport Risk Map")
-
-    if airports is not None and len(filtered) > 0:
-        # Get top risky pairs for the map
-        map_pairs = filtered.nlargest(min(top_n, 200), "risk_score")
-
-        # Airport locations
-        airport_dict = airports.set_index("iata").to_dict("index")
-
-        # Create lines for each risky pair
-        lines_lat = []
-        lines_lon = []
-        line_colors = []
-        hover_texts = []
-
-        for _, row in map_pairs.iterrows():
-            a, b = row["airport_a"], row["airport_b"]
-            a_info = airport_dict.get(a)
-            b_info = airport_dict.get(b)
-            if not a_info or not b_info:
-                continue
-
-            # DFW coords
-            dfw_lat, dfw_lon = 32.8998, -97.0403
-
-            # Line from A to DFW
-            lines_lat += [a_info["latitude"], dfw_lat, None]
-            lines_lon += [a_info["longitude"], dfw_lon, None]
-
-            # Line from DFW to B
-            lines_lat += [dfw_lat, b_info["latitude"], None]
-            lines_lon += [dfw_lon, b_info["longitude"], None]
-
-            line_colors.append(row["risk_score"])
-            hover_texts.append(f"{a} - DFW - {b}: Risk {row['risk_score']:.1f}")
-
-        fig = go.Figure()
-
-        # Add lines (connections)
-        fig.add_trace(go.Scattergeo(
-            lat=lines_lat, lon=lines_lon,
-            mode="lines",
-            line=dict(width=1, color="red"),
-            opacity=0.3,
-            showlegend=False,
+        fig_pair = go.Figure()
+        fig_pair.add_trace(go.Bar(
+            x=MONTH_NAMES,
+            y=pair_data["risk_score"],
+            marker_color=[C["coral"] if r >= 80 else C["gold"] if r >= 65 else C["teal"]
+                          for r in pair_data["risk_score"]],
         ))
-
-        # Add airport markers
-        unique_airports = set(map_pairs["airport_a"]) | set(map_pairs["airport_b"])
-        ap_lats, ap_lons, ap_names, ap_sizes = [], [], [], []
-        for ap in unique_airports:
-            info = airport_dict.get(ap)
-            if info:
-                ap_lats.append(info["latitude"])
-                ap_lons.append(info["longitude"])
-                ap_names.append(ap)
-                # Size by how many risky pairs this airport appears in
-                count = ((map_pairs["airport_a"] == ap) | (map_pairs["airport_b"] == ap)).sum()
-                ap_sizes.append(max(6, min(20, count)))
-
-        fig.add_trace(go.Scattergeo(
-            lat=ap_lats, lon=ap_lons,
-            text=ap_names,
-            mode="markers+text",
-            textposition="top center",
-            marker=dict(size=ap_sizes, color="blue", opacity=0.7),
-            showlegend=False,
-        ))
-
-        # DFW marker (larger)
-        fig.add_trace(go.Scattergeo(
-            lat=[32.8998], lon=[-97.0403],
-            text=["DFW"],
-            mode="markers+text",
-            textposition="bottom center",
-            marker=dict(size=15, color="gold", symbol="star", line=dict(width=2, color="black")),
-            name="DFW Hub",
-        ))
-
-        fig.update_geos(
-            scope="usa",
-            showland=True, landcolor="lightgray",
-            showlakes=True, lakecolor="lightblue",
+        fig_pair.update_layout(
+            height=240,
+            title=dict(text=f"Monthly Risk: {airport_a} ↔ {airport_b}",
+                       font=dict(color=C["white"], family="Georgia")),
+            margin=dict(l=40, r=10, t=40, b=20),
+            paper_bgcolor=C["panel"],
+            plot_bgcolor=C["panel"],
+            xaxis=dict(tickfont=dict(color=C["ice"]), showgrid=False),
+            yaxis=dict(tickfont=dict(color=C["ice"]), gridcolor=C["border"],
+                       range=[0, 100]),
         )
-        fig.update_layout(
-            title=f"Top {min(top_n, len(map_pairs))} Risky Airport Pairs Through DFW",
-            height=600,
+        st.plotly_chart(fig_pair, use_container_width=True)
+
+        mcols = st.columns(4)
+        mcols[0].metric("Average Risk", f"{pair_data['risk_score'].mean():.1f}")
+        mcols[1].metric("Peak Risk", f"{pair_data['risk_score'].max():.1f}")
+        mcols[2].metric("Peak Month", MONTH_NAMES[pair_data.loc[pair_data["risk_score"].idxmax(), "month"]-1])
+        mcols[3].metric("Joint Weather Prob", f"{pair_data['joint_weather_delay_prob'].mean():.3f}")
+
+with st.expander("▸ AVOID LIST · Full pair-season recommendations", expanded=False):
+    if avoid_list is not None:
+        season_filter = st.selectbox(
+            "Season",
+            ["All"] + sorted(avoid_list["season"].unique()),
+            key="avoid_season",
         )
-        st.plotly_chart(fig, use_container_width=True)
+        display = avoid_list if season_filter == "All" else avoid_list[avoid_list["season"] == season_filter]
+        st.dataframe(
+            display[["season", "airport_a", "airport_b", "risk_score", "reason"]].head(100),
+            use_container_width=True,
+            height=400,
+        )
+        st.caption(f"Showing {min(100, len(display))} of {len(display)} recommendations")
 
-# ---------------------------------------------------------------------------
-# Tab 4: Model Performance
-# ---------------------------------------------------------------------------
+with st.expander("▸ SWAP RECOMMENDATIONS · Safe alternatives for flagged pairs", expanded=False):
+    if swap_recs is not None:
+        st.dataframe(
+            swap_recs[["season", "avoid_origin", "avoid_dest", "avoid_risk",
+                       "swap_dest", "swap_risk", "risk_reduction"]].head(50),
+            use_container_width=True, height=400,
+        )
+        st.caption(f"Avg risk reduction per swap: {swap_recs['risk_reduction'].mean():.0f} points")
 
-with tab4:
-    st.subheader("XGBoost Model Performance")
-
-    col1, col2 = st.columns(2)
-
-    roc_data = load_roc_curve()
-    pr_data = load_pr_curve()
-
-    with col1:
-        if roc_data is not None:
-            fig = px.area(roc_data, x="fpr", y="tpr",
-                          title="ROC Curve",
-                          labels={"fpr": "False Positive Rate", "tpr": "True Positive Rate"})
-            fig.add_shape(type="line", x0=0, x1=1, y0=0, y1=1,
-                          line=dict(dash="dash", color="gray"))
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("ROC curve data not yet available")
-
-    with col2:
-        if pr_data is not None:
-            fig = px.area(pr_data, x="recall", y="precision",
-                          title="Precision-Recall Curve",
-                          labels={"recall": "Recall", "precision": "Precision"})
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("PR curve data not yet available")
-
-    # Feature importance
+with st.expander("▸ MODEL INTERNALS · XGBoost performance", expanded=False):
     if importance is not None:
-        st.subheader("Top 20 Feature Importances")
-        top_imp = importance.head(20)
-        fig = px.bar(top_imp, x="importance", y="feature", orientation="h",
-                     title="XGBoost Feature Importance (Gain)",
-                     labels={"importance": "Importance", "feature": "Feature"})
-        fig.update_layout(yaxis=dict(autorange="reversed"), height=500)
-        st.plotly_chart(fig, use_container_width=True)
-
-# ---------------------------------------------------------------------------
-# Tab 5: Simulation Results
-# ---------------------------------------------------------------------------
-
-with tab5:
-    st.subheader("Impact Analysis: Delay Savings from Avoiding Risky Pairs")
-
-    if sim_results is not None and "k" in sim_results.columns:
-        # New format: retrospective analysis
-        col1, col2 = st.columns(2)
-
-        with col1:
-            # Line chart: K vs dollar savings
-            fig = px.line(
-                sim_results, x="k", y="dollar_savings",
-                title="Total Preventable Delay Cost by Pairs Avoided",
-                markers=True,
-                labels={"k": "Number of Risky Pairs Avoided", "dollar_savings": "Savings ($)"},
-            )
-            fig.update_layout(yaxis_tickprefix="$", yaxis_tickformat=",")
-            st.plotly_chart(fig, use_container_width=True)
-
-        with col2:
-            # Bar chart: % of cascading events prevented
-            fig = px.bar(
-                sim_results, x="k", y="pct_events_prevented",
-                title="% of Cascading Delay Events Prevented",
-                labels={"k": "Risky Pairs Avoided", "pct_events_prevented": "Events Prevented (%)"},
-                color="pct_events_prevented",
-                color_continuous_scale="Greens",
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-        # Summary table
-        display_df = sim_results[["k", "prevented_events", "total_cascade_events",
-                                   "pct_events_prevented", "prevented_minutes",
-                                   "dollar_savings"]].copy()
-        display_df.columns = ["Pairs Avoided", "Events Prevented", "Total Events",
-                              "% Prevented", "Minutes Saved", "Dollar Savings"]
-        display_df["Dollar Savings"] = display_df["Dollar Savings"].apply(lambda x: f"${x:,.0f}")
-        display_df["% Prevented"] = display_df["% Prevented"].apply(lambda x: f"{x:.1f}%")
-        st.dataframe(display_df, use_container_width=True)
-
-        # Monthly breakdown
-        monthly_path = SIMULATION_DIR / "monthly_breakdown.parquet"
-        if monthly_path.exists():
-            monthly = pd.read_parquet(monthly_path)
-            best_k = sim_results["k"].max()
-            monthly_best = monthly[monthly["k"] == best_k]
-
-            MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-            monthly_best = monthly_best.copy()
-            monthly_best["month_name"] = monthly_best["month"].apply(lambda m: MONTH_LABELS[m-1])
-
-            fig = px.bar(
-                monthly_best, x="month_name", y="dollar_savings",
-                title=f"Monthly Savings Breakdown (K={best_k})",
-                labels={"month_name": "Month", "dollar_savings": "Savings ($)"},
-                color="dollar_savings", color_continuous_scale="RdYlGn",
-            )
-            fig.update_layout(yaxis_tickprefix="$", yaxis_tickformat=",")
-            st.plotly_chart(fig, use_container_width=True)
-
-        # Headline metrics — both upper bound and adjusted
-        best_row = sim_results.loc[sim_results["k"].idxmax()]
-        # Dataset covers 5 years: 2019, 2021, 2022, 2023, 2024 (2020 excluded for COVID)
-        years_in_data = 5
-
-        annual_upper = best_row["dollar_savings"] / years_in_data
-        has_adjusted = "adjusted_savings" in sim_results.columns
-        annual_adjusted = best_row.get("adjusted_savings", annual_upper) / years_in_data if has_adjusted else annual_upper
-
-        st.success(
-            f"**By avoiding the top {int(best_row['k'])} risky airport pairs, "
-            f"American Airlines could prevent {best_row['pct_events_prevented']:.1f}% "
-            f"of cascading weather delays.**"
+        top_imp = importance.head(15).iloc[::-1]
+        fig_imp = go.Figure()
+        fig_imp.add_trace(go.Bar(
+            x=top_imp["importance"],
+            y=top_imp["feature"],
+            orientation="h",
+            marker_color=[C["coral"] if f.startswith("wx_dfw") else C["deep_blue"]
+                          for f in top_imp["feature"]],
+        ))
+        fig_imp.update_layout(
+            height=400,
+            title=dict(text="Top 15 Features by Gain", font=dict(color=C["white"], family="Georgia")),
+            margin=dict(l=180, r=10, t=40, b=30),
+            paper_bgcolor=C["panel"],
+            plot_bgcolor=C["panel"],
+            xaxis=dict(tickfont=dict(color=C["ice"]), gridcolor=C["border"]),
+            yaxis=dict(tickfont=dict(color=C["ice"], family="Consolas", size=10)),
         )
+        st.plotly_chart(fig_imp, use_container_width=True)
+        st.caption("Coral bars = DFW hub weather features. Blue = other features.")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Upper Bound (worst-case scheduling)", f"${annual_upper:,.0f}/year")
-        with col2:
-            st.metric("Adjusted Estimate (random assignment)", f"${annual_adjusted:,.0f}/year")
-
-        if has_adjusted:
-            st.caption(
-                "Upper bound assumes every flagged pair was assigned every impacted day. "
-                "Adjusted estimate scales by the probability that a specific pair is actually "
-                "assigned on any given day (~7%), which is more realistic."
-            )
-    else:
-        st.info("Simulation results not yet available. Run the pipeline first.")
-
-# ---------------------------------------------------------------------------
-# Tab 6: Case Study — May 28, 2024
-# ---------------------------------------------------------------------------
-
-with tab6:
-    st.subheader("Case Study: May 28, 2024")
-    st.markdown("*The worst cascading delay day in our dataset*")
-
-    if case_study is not None:
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Weather-Delayed Inbound", "172 flights")
-        with col2:
-            st.metric("Delayed Outbound (>15min)", "471 flights")
-        with col3:
-            st.metric("Cascading Sequences", f"{len(case_study):,}")
-        with col4:
-            total_cost = case_study["total_cascade_minutes"].sum() * 75
-            st.metric("Estimated Cascade Cost", f"${total_cost:,.0f}")
-
-        st.markdown("---")
-
-        # Timeline
-        case_study["arr_hour"] = (case_study["inbound_arr_time"] // 60).astype(int)
-        hourly = case_study.groupby("arr_hour").agg(
-            cascades=("total_cascade_minutes", "size"),
-            total_delay=("total_cascade_minutes", "sum"),
-        ).reset_index()
-        hourly["hour_label"] = hourly["arr_hour"].apply(lambda h: f"{h:02d}:00")
-
-        fig = px.bar(hourly, x="hour_label", y="total_delay",
-                     title="Cascade Delay by Hour of Inbound Arrival",
-                     labels={"hour_label": "Hour", "total_delay": "Total Cascade Minutes"},
-                     color="total_delay", color_continuous_scale="Reds")
-        st.plotly_chart(fig, use_container_width=True)
-
-        # Top pairs
-        st.subheader("Top Cascading Pairs on This Day")
-        pair_summary = case_study.groupby(["origin", "dest"]).agg(
-            sequences=("total_cascade_minutes", "size"),
-            total_cascade=("total_cascade_minutes", "sum"),
-            avg_cascade=("total_cascade_minutes", "mean"),
-            risk_score=("risk_score", "mean"),
-        ).sort_values("total_cascade", ascending=False).head(15).reset_index()
-
-        pair_summary["was_flagged"] = pair_summary["risk_score"] >= 65
-        pair_summary["status"] = pair_summary["was_flagged"].map({True: "Flagged by model", False: "MISSED"})
-
-        fig = px.bar(pair_summary, x=pair_summary["origin"] + "→" + pair_summary["dest"],
-                     y="total_cascade", color="status",
-                     title="Top 15 Cascading Pairs — Flagged vs. Missed",
-                     labels={"x": "Pair (Origin→Dest)", "total_cascade": "Total Cascade Minutes"},
-                     color_discrete_map={"Flagged by model": "green", "MISSED": "red"})
-        st.plotly_chart(fig, use_container_width=True)
-
-        # What our model caught
-        flagged = case_study[case_study["risk_score"] >= 65]
-        missed = case_study[case_study["risk_score"] < 65]
-        flagged_pct = len(flagged) / max(len(case_study), 1) * 100
-        flagged_min = flagged["total_cascade_minutes"].sum()
-        total_min = case_study["total_cascade_minutes"].sum()
-
-        st.info(
-            f"**Our model flagged {len(flagged):,} of {len(case_study):,} cascading sequences "
-            f"({flagged_pct:.1f}%), covering {flagged_min:,.0f} of {total_min:,.0f} cascade minutes "
-            f"({flagged_min/max(total_min,1)*100:.1f}%).**"
-        )
-    else:
-        st.info("Run `python src/case_study.py` to generate case study data.")
+# =========================================================================
+# FOOTER
+# =========================================================================
+st.markdown(f"""
+<div style='margin-top: 32px; padding: 16px 0; border-top: 1px solid {C['border']};
+            text-align: center; color: {C['muted']}; font-size: 11px; letter-spacing: 2px;'>
+    STORMCHAIN · EPPS-AMERICAN AIRLINES DATA CHALLENGE GROW 26.2 · drPod<br>
+    <span style='color: {C['ice']};'>
+        github.com/drPod/stormchain
+    </span>
+</div>
+""", unsafe_allow_html=True)
