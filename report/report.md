@@ -157,6 +157,8 @@ We report two estimates:
 
 **Top predictive features:** DFW heavy rain hours, time of day (cyclical), DFW precipitation total, DFW poor visibility hours, connection minutes, airport B precipitation. DFW weather dominates because it affects every sequence — a known limitation discussed in Section 6.
 
+![Top 15 XGBoost features by gain. DFW hub weather (coral) dominates, confirming the limitation discussed in Section 6.2. Non-DFW features (blue) — including connection minutes and endpoint weather — contribute secondary but meaningful signal.](../outputs/figures/fig3_feature_importance.png){width=85%}
+
 ### 4.2 Baseline Comparison
 
 We compared our model against a naive baseline that simply flags pairs where both airports individually have above-median weather delay rates.
@@ -167,6 +169,8 @@ We compared our model against a naive baseline that simply flags pairs where bot
 | 100 | 563K min caught | 335K min | **+68.3%** |
 | 200 | 1.09M min caught | 610K min | **+78.3%** |
 | 500 | 2.60M min caught | 1.62M min | **+60.5%** |
+
+![StormChain vs. Naive Baseline — cascade delay minutes caught at each K threshold. Our model consistently outperforms, peaking at +78% improvement at K=200.](../outputs/figures/fig1_baseline_comparison.png){width=90%}
 
 At K=500, our model identifies 176 risky pairs that the naive approach misses entirely — pairs where the risk comes from correlated weather patterns (now including real METAR IFR co-occurrence), tight turnarounds, or cascade mechanics rather than individually high delay rates.
 
@@ -183,6 +187,10 @@ At K=500, our model identifies 176 risky pairs that the naive approach misses en
 
 **Winter (December-February):** Northeast snow + Pacific wind events
 - ORD-LGA, LAX-ORD, LAX-LAS, DEN-MCO, LAX-SAN (Santa Ana winds)
+
+![Risk score heatmap for top 25 pairs by month. Clear seasonal patterns emerge: MCO dominates summer (afternoon convection), Texas corridor peaks in spring, Northeast pairs rise in winter.](../outputs/figures/fig4_seasonal_heatmap.png){width=90%}
+
+![Geographic view of the top 50 risky airport pairs through DFW. Red lines indicate very high risk (>80), gold lines indicate high risk (65-80). The Florida concentration (MCO, MIA) and Northeast cluster (CLT, LGA) are visible.](../outputs/figures/fig5_us_map.png){width=95%}
 
 ### 4.4 Recommendations
 
@@ -219,6 +227,8 @@ The worst cascading delay day in our dataset illustrates the problem concretely.
 - Estimated cascade cost: $4.4 million
 
 **Top cascading routes:** BOS→DFW→BHM (1,108 min cascade), ORD→DFW→PHX (995 min), MEM→DFW→MCO (738 min)
+
+![Cascade delay minutes by hour of inbound arrival, May 28, 2024. The morning wave (06:00-11:00) accounts for ~70% of total cascade damage — overnight delays compounding into the day's schedule.](../outputs/figures/fig2_case_study_timeline.png){width=90%}
 
 **Model performance on this day:** Our top 500 risky pairs flagged 9 of 170 sequences (5.3%). The unflagged sequences involved uncommon route combinations (BOS-BHM, AMA-FLL, LCH-SMF) that rarely appear in the historical data — our monthly pair-level model cannot score routes it hasn't observed enough. This is an honest limitation: extreme weather events produce cascades on unusual route combinations that no historical risk model would predict. The value of our model is in preventing the **predictable, recurring** cascades (MCO-MIA in summer, LGA-PHL in winter) rather than catching every black swan event.
 

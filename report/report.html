@@ -410,6 +410,16 @@ of day (cyclical), DFW precipitation total, DFW poor visibility hours,
 connection minutes, airport B precipitation. DFW weather dominates
 because it affects every sequence — a known limitation discussed in
 Section 6.</p>
+<figure>
+<img src="../outputs/figures/fig3_feature_importance.png"
+style="width:85.0%"
+alt="Top 15 XGBoost features by gain. DFW hub weather (coral) dominates, confirming the limitation discussed in Section 6.2. Non-DFW features (blue) — including connection minutes and endpoint weather — contribute secondary but meaningful signal." />
+<figcaption aria-hidden="true">Top 15 XGBoost features by gain. DFW hub
+weather (coral) dominates, confirming the limitation discussed in
+Section 6.2. Non-DFW features (blue) — including connection minutes and
+endpoint weather — contribute secondary but meaningful
+signal.</figcaption>
+</figure>
 <h3 id="baseline-comparison">4.2 Baseline Comparison</h3>
 <p>We compared our model against a naive baseline that simply flags
 pairs where both airports individually have above-median weather delay
@@ -450,6 +460,14 @@ rates.</p>
 </tr>
 </tbody>
 </table>
+<figure>
+<img src="../outputs/figures/fig1_baseline_comparison.png"
+style="width:90.0%"
+alt="StormChain vs. Naive Baseline — cascade delay minutes caught at each K threshold. Our model consistently outperforms, peaking at +78% improvement at K=200." />
+<figcaption aria-hidden="true">StormChain vs. Naive Baseline — cascade
+delay minutes caught at each K threshold. Our model consistently
+outperforms, peaking at +78% improvement at K=200.</figcaption>
+</figure>
 <p>At K=500, our model identifies 176 risky pairs that the naive
 approach misses entirely — pairs where the risk comes from correlated
 weather patterns (now including real METAR IFR co-occurrence), tight
@@ -467,6 +485,23 @@ Pacific-to-East corridors lead - LAX-ORD, LAX-LAS, LAX-SFO, ATL-ORD</p>
 <p><strong>Winter (December-February):</strong> Northeast snow + Pacific
 wind events - ORD-LGA, LAX-ORD, LAX-LAS, DEN-MCO, LAX-SAN (Santa Ana
 winds)</p>
+<figure>
+<img src="../outputs/figures/fig4_seasonal_heatmap.png"
+style="width:90.0%"
+alt="Risk score heatmap for top 25 pairs by month. Clear seasonal patterns emerge: MCO dominates summer (afternoon convection), Texas corridor peaks in spring, Northeast pairs rise in winter." />
+<figcaption aria-hidden="true">Risk score heatmap for top 25 pairs by
+month. Clear seasonal patterns emerge: MCO dominates summer (afternoon
+convection), Texas corridor peaks in spring, Northeast pairs rise in
+winter.</figcaption>
+</figure>
+<figure>
+<img src="../outputs/figures/fig5_us_map.png" style="width:95.0%"
+alt="Geographic view of the top 50 risky airport pairs through DFW. Red lines indicate very high risk (&gt;80), gold lines indicate high risk (65-80). The Florida concentration (MCO, MIA) and Northeast cluster (CLT, LGA) are visible." />
+<figcaption aria-hidden="true">Geographic view of the top 50 risky
+airport pairs through DFW. Red lines indicate very high risk (&gt;80),
+gold lines indicate high risk (65-80). The Florida concentration (MCO,
+MIA) and Northeast cluster (CLT, LGA) are visible.</figcaption>
+</figure>
 <h3 id="recommendations">4.4 Recommendations</h3>
 <p>Our model produces: - <strong>1,220 pair-season avoid
 recommendations</strong> with risk scores and explanations - <strong>294
@@ -525,6 +560,15 @@ sequences with actual propagated delay (delay exceeded turnaround
 buffer) - Estimated cascade cost: $4.4 million</p>
 <p><strong>Top cascading routes:</strong> BOS→DFW→BHM (1,108 min
 cascade), ORD→DFW→PHX (995 min), MEM→DFW→MCO (738 min)</p>
+<figure>
+<img src="../outputs/figures/fig2_case_study_timeline.png"
+style="width:90.0%"
+alt="Cascade delay minutes by hour of inbound arrival, May 28, 2024. The morning wave (06:00-11:00) accounts for ~70% of total cascade damage — overnight delays compounding into the day’s schedule." />
+<figcaption aria-hidden="true">Cascade delay minutes by hour of inbound
+arrival, May 28, 2024. The morning wave (06:00-11:00) accounts for ~70%
+of total cascade damage — overnight delays compounding into the day’s
+schedule.</figcaption>
+</figure>
 <p><strong>Model performance on this day:</strong> Our top 500 risky
 pairs flagged 9 of 170 sequences (5.3%). The unflagged sequences
 involved uncommon route combinations (BOS-BHM, AMA-FLL, LCH-SMF) that
