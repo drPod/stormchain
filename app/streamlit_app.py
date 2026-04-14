@@ -531,9 +531,8 @@ with tab5:
 
         # Headline metrics — both upper bound and adjusted
         best_row = sim_results.loc[sim_results["k"].idxmax()]
-        years_in_data = max(1, len(set(pd.to_datetime(
-            pd.read_parquet(PROCESSED_DIR / "flights_dfw.parquet", columns=["Year"])["Year"]
-        ).unique())))
+        # Dataset covers 5 years: 2019, 2021, 2022, 2023, 2024 (2020 excluded for COVID)
+        years_in_data = 5
 
         annual_upper = best_row["dollar_savings"] / years_in_data
         has_adjusted = "adjusted_savings" in sim_results.columns
