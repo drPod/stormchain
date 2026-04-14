@@ -1,8 +1,10 @@
-# Airline Crew Sequences Meet Bad Weather
+# StormChain
 
-**EPPS-American Airlines Data Challenge — GROW 26.2**
+**Airline Crew Sequences Meet Bad Weather — EPPS-American Airlines Data Challenge (GROW 26.2)**
 
 A data-driven system that identifies pilot flight sequences through DFW most vulnerable to weather-driven cascading delays, produces an actionable avoid list with swap recommendations, and validates the approach with a cascade-propagation model.
+
+*Named for the phenomenon it models: chains of cascading delays triggered by correlated weather events propagating through pilot sequences.*
 
 ## Quick Results
 
@@ -24,7 +26,7 @@ A data-driven system that identifies pilot flight sequences through DFW most vul
 ## Repository Layout
 
 ```
-ds-challenge/
+stormchain/
 ├── report/                 # 20-page competition submission
 │   ├── report.pdf
 │   ├── report.md
@@ -80,6 +82,13 @@ This project went through 12 iterations of self-critique and improvement. See `d
 - Discovered our impact estimates were inflated 240× — rebuilt with realistic pilot-sequence counting
 - Found DFW weather dominated XGBoost features — added pair-level risk scoring to mitigate
 - Integrated real METAR aviation weather data after realizing proxies weren't good enough
+
+## Links
+
+- **Repository:** https://github.com/drPod/stormchain
+- **Interactive Dashboard:** deployed on Streamlit Community Cloud (URL added after deployment)
+- **Report:** `report/report.pdf`
+- **Presentation:** `report/presentation.pptx`
 
 ## License
 

@@ -1,6 +1,6 @@
 ---
-title: "Airline Crew Sequences Meet Bad Weather"
-subtitle: "EPPS-American Airlines Data Challenge — GROW 26.2"
+title: "StormChain"
+subtitle: "Airline Crew Sequences Meet Bad Weather — EPPS-American Airlines Data Challenge"
 author: "Team Submission"
 theme: "default"
 colortheme: "default"
@@ -8,9 +8,11 @@ colortheme: "default"
 
 # Slide 1: Title
 
-**Airline Crew Sequences Meet Bad Weather**
+**StormChain**
 
-Identifying pilot flight pairings through DFW that should not share a sequence
+*Identifying pilot flight pairings through DFW that should not share a sequence*
+
+EPPS-American Airlines Data Challenge — GROW 26.2
 
 ---
 

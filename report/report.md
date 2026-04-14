@@ -1,5 +1,5 @@
-# Airline Crew Sequences Meet Bad Weather
-## EPPS-American Airlines Data Challenge — GROW 26.2
+# StormChain
+## Airline Crew Sequences Meet Bad Weather — EPPS-American Airlines Data Challenge (GROW 26.2)
 
 ---
 

@@ -13,13 +13,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import MODEL_DIR, SIMULATION_DIR, PROCESSED_DIR, FIGURES_DIR, OUTPUT_DIR, TOP_K_VALUES, MONTE_CARLO_TRIALS
 
 st.set_page_config(
-    page_title="AA Flight Sequence Weather Risk",
+    page_title="StormChain — AA Sequence Risk",
     page_icon="✈️",
     layout="wide",
 )
 
-st.title("Airline Crew Sequence Weather Risk Analysis")
-st.markdown("*Identifying airport pairs that should not share a pilot sequence through DFW*")
+st.title("StormChain")
+st.markdown("*Airline Crew Sequences Meet Bad Weather — identifying pilot sequences through DFW vulnerable to cascading delays*")
 
 
 # ---------------------------------------------------------------------------
