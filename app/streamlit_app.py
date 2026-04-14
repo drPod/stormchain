@@ -1,13 +1,14 @@
 """StormChain Operations Command Center — tactical dashboard for crew sequence risk."""
 
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import requests
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -594,6 +595,55 @@ def load_top_cascading_pairs():
     return pd.read_parquet(path) if path.exists() else None
 
 
+@st.cache_data(ttl=300)
+def fetch_live_metar(stations: tuple = ("KDFW", "KORD", "KATL", "KMCO", "KLGA", "KLAX")):
+    """Fetch current METAR for key airports from Aviation Weather Center.
+    Cached 5 min — genuinely live within that window."""
+    try:
+        url = "https://aviationweather.gov/api/data/metar"
+        ids = ",".join(stations)
+        resp = requests.get(url, params={"ids": ids, "format": "json"}, timeout=8)
+        resp.raise_for_status()
+        data = resp.json()
+        results = []
+        for obs in data:
+            icao = obs.get("icaoId", "")
+            ceiling = 99999
+            for c in (obs.get("clouds") or []):
+                if c.get("cover") in ("BKN", "OVC") and c.get("base"):
+                    ceiling = min(ceiling, c["base"])
+            vis_raw = obs.get("visib", "10")
+            try:
+                vis = float(str(vis_raw).replace("+", ""))
+            except (ValueError, TypeError):
+                vis = 10
+            if ceiling < 500 or vis < 1:
+                cat = "LIFR"
+            elif ceiling < 1000 or vis < 3:
+                cat = "IFR"
+            elif ceiling < 3000 or vis < 5:
+                cat = "MVFR"
+            else:
+                cat = "VFR"
+            results.append({
+                "icao": icao,
+                "iata": icao[1:] if icao.startswith("K") else icao,
+                "temp_c": obs.get("temp"),
+                "dewp_c": obs.get("dewp"),
+                "wind_dir": obs.get("wdir"),
+                "wind_kt": obs.get("wspd"),
+                "gust_kt": obs.get("wgst"),
+                "vis_sm": vis,
+                "ceiling_ft": ceiling if ceiling < 99999 else None,
+                "raw": obs.get("rawOb", ""),
+                "category": cat,
+                "report_time": obs.get("reportTime"),
+            })
+        return pd.DataFrame(results)
+    except Exception:
+        return pd.DataFrame()
+
+
 risk_scores = load_risk_scores()
 avoid_list = load_avoid_list()
 baseline = load_baseline()
@@ -664,6 +714,70 @@ with col_title:
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+# =========================================================================
+# LIVE METAR STRIP — real current conditions from AWC API (5-min cache)
+# =========================================================================
+live_metar = fetch_live_metar()
+if len(live_metar) > 0:
+    cat_colors = {
+        "VFR": C["green"], "MVFR": C["gold"],
+        "IFR": C["coral"], "LIFR": C["coral"],
+    }
+    tiles_html = ""
+    for _, r in live_metar.iterrows():
+        cat = r["category"]
+        color = cat_colors.get(cat, C["muted"])
+        def safe_int(v):
+            try:
+                if v is None or pd.isna(v):
+                    return None
+                return int(v)
+            except (ValueError, TypeError):
+                return None
+
+        wind_kt = safe_int(r.get("wind_kt"))
+        gust_kt = safe_int(r.get("gust_kt"))
+        ceiling = safe_int(r.get("ceiling_ft"))
+        vis = r.get("vis_sm", 10) or 10
+
+        wind_str = f"{wind_kt}kt" if wind_kt is not None else "—"
+        if gust_kt:
+            wind_str += f" G{gust_kt}"
+        ceiling_str = f"{ceiling}ft" if ceiling else "—"
+        vis_str = f"{vis:.0f}SM" if vis >= 1 else f"{vis:.1f}SM"
+
+        tiles_html += (
+            f'<div style="flex: 1; background: {C["panel"]}; border: 1px solid {C["border"]}; '
+            f'border-top: 3px solid {color}; padding: 10px 14px; min-width: 0;">'
+            f'<div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">'
+            f'<span style="font-family: Consolas, monospace; font-size: 16px; font-weight: bold; color: {C["white"]};">{r["iata"]}</span>'
+            f'<span style="font-family: Consolas, monospace; font-size: 10px; font-weight: bold; color: {color}; letter-spacing: 1px;">{cat}</span>'
+            f'</div>'
+            f'<div style="font-size: 10px; color: {C["muted"]}; line-height: 1.5;">'
+            f'WIND {wind_str}<br>VIS {vis_str}<br>CIG {ceiling_str}'
+            f'</div>'
+            f'</div>'
+        )
+
+    # Timestamp of latest obs
+    report_times = [r for r in live_metar["report_time"] if r]
+    latest = max(report_times) if report_times else ""
+
+    live_html = (
+        f'<div style="margin: 12px 0 16px 0;">'
+        f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">'
+        f'<span style="font-family: Consolas, monospace; font-size: 11px; letter-spacing: 3px; color: {C["coral"]};">'
+        f'<span class="status-dot"></span>LIVE CONDITIONS · FETCHED FROM AWC METAR API'
+        f'</span>'
+        f'<span style="font-family: Consolas, monospace; font-size: 10px; color: {C["muted"]};">'
+        f'LAST OBS {latest[11:16] if latest else "—"}Z · CACHE 5 MIN'
+        f'</span>'
+        f'</div>'
+        f'<div style="display: flex; gap: 8px;">{tiles_html}</div>'
+        f'</div>'
+    )
+    st.markdown(live_html, unsafe_allow_html=True)
 
 # =========================================================================
 # CONTROLS
@@ -857,7 +971,7 @@ with map_col:
 with feed_col:
     st.markdown(f"""
     <p class="panel-title" style='margin-bottom: 8px;'>
-        RISK FEED · LIVE
+        RISK FEED · MONTH VIEW
     </p>
     """, unsafe_allow_html=True)
 
