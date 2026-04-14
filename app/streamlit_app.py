@@ -971,17 +971,39 @@ with map_col:
 with feed_col:
     st.markdown(f"""
     <p class="panel-title" style='margin-bottom: 8px;'>
-        RISK FEED · MONTH VIEW
+        TOP PAIRS · WITH SWAP
+    </p>
+    <p style='font-size: 11px; color: {C['muted']}; margin-top: 0; margin-bottom: 12px;'>
+        Top 5 pairs for this month — each with a safer alternative destination
     </p>
     """, unsafe_allow_html=True)
 
     # Airport city lookup
     city_lookup = airports.set_index("iata")["city"].to_dict()
 
-    st.markdown("<div style='background: " + C['panel'] + "; border: 1px solid " + C['border'] +
-                "; border-radius: 6px; padding: 12px; max-height: 460px; overflow-y: auto;'>", unsafe_allow_html=True)
+    # Build per-pair swap lookup for the selected month
+    active_dests = set(risk_scores["airport_b"]).union(set(risk_scores["airport_a"]))
 
-    for _, row in month_scores.head(20).iterrows():
+    def find_swap(origin, avoid_dest, month):
+        """Find a safer alternative outbound destination for a given origin in this month."""
+        candidates = risk_scores[
+            (risk_scores["month"] == month) &
+            ((risk_scores["airport_a"] == origin) | (risk_scores["airport_b"] == origin))
+        ].copy()
+        if candidates.empty:
+            return None
+        candidates["other"] = np.where(
+            candidates["airport_a"] == origin,
+            candidates["airport_b"], candidates["airport_a"]
+        )
+        candidates = candidates[(candidates["other"] != avoid_dest) & (candidates["risk_score"] < 30)]
+        if candidates.empty:
+            return None
+        best = candidates.nsmallest(1, "risk_score").iloc[0]
+        return {"dest": best["other"], "risk": best["risk_score"]}
+
+    rows_html = ""
+    for _, row in month_scores.head(5).iterrows():
         risk = row["risk_score"]
         if risk >= 80:
             badge_class = "critical"
@@ -996,21 +1018,38 @@ with feed_col:
         city_a = city_lookup.get(row['airport_a'], row['airport_a'])
         city_b = city_lookup.get(row['airport_b'], row['airport_b'])
 
-        st.markdown(f"""
-        <div class="feed-row">
-            <div style='display: flex; justify-content: space-between; align-items: center;'>
-                <div>
-                    <span class="pair-label">{row['airport_a']} ↔ {row['airport_b']}</span>
-                    <span class="risk-badge {badge_class}">{badge_text} · {risk:.0f}</span>
-                </div>
-            </div>
-            <div style='color: {C['muted']}; font-size: 11px; margin-top: 2px;'>
-                {city_a}  ·  {city_b}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        # Find a swap alternative for the A→DFW→B direction
+        swap = find_swap(row['airport_a'], row['airport_b'], selected_month)
+        swap_html = ""
+        if swap:
+            swap_city = city_lookup.get(swap['dest'], swap['dest'])
+            swap_html = (
+                f'<div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed {C["border"]};">'
+                f'<div style="font-size: 10px; color: {C["muted"]}; letter-spacing: 2px;">'
+                f'<span style="color: {C["gold"]};">→ SWAP</span> '
+                f'{row["airport_a"]} → DFW → <span style="color: {C["green"]};">{swap["dest"]}</span> '
+                f'<span style="color: {C["green"]}; font-weight: bold;">risk {swap["risk"]:.0f}</span>'
+                f'</div>'
+                f'<div style="font-size: 10px; color: {C["muted"]}; margin-top: 2px;">'
+                f'safer alternative: {swap_city}'
+                f'</div>'
+                f'</div>'
+            )
 
-    st.markdown("</div>", unsafe_allow_html=True)
+        rows_html += (
+            f'<div class="feed-row">'
+            f'<div style="display: flex; justify-content: space-between; align-items: center;">'
+            f'<span class="pair-label">{row["airport_a"]} ↔ {row["airport_b"]}</span>'
+            f'<span class="risk-badge {badge_class}">{badge_text} · {risk:.0f}</span>'
+            f'</div>'
+            f'<div style="color: {C["muted"]}; font-size: 11px; margin-top: 2px;">'
+            f'{city_a} · {city_b}'
+            f'</div>'
+            f'{swap_html}'
+            f'</div>'
+        )
+
+    st.markdown(rows_html, unsafe_allow_html=True)
 
 st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
 
