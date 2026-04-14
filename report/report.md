@@ -1,3 +1,11 @@
+---
+header-includes:
+  - \usepackage{float}
+  - \floatplacement{figure}{htbp}
+  - \usepackage{caption}
+  - \captionsetup{font=small}
+---
+
 # StormChain
 ## Airline Crew Sequences Meet Bad Weather — EPPS-American Airlines Data Challenge (GROW 26.2)
 
@@ -188,9 +196,9 @@ At K=500, our model identifies 176 risky pairs that the naive approach misses en
 **Winter (December-February):** Northeast snow + Pacific wind events
 - ORD-LGA, LAX-ORD, LAX-LAS, DEN-MCO, LAX-SAN (Santa Ana winds)
 
-![Risk score heatmap for top 25 pairs by month. Clear seasonal patterns emerge: MCO dominates summer (afternoon convection), Texas corridor peaks in spring, Northeast pairs rise in winter.](../outputs/figures/fig4_seasonal_heatmap.png){width=90%}
+![Risk score heatmap for top 25 pairs by month. Clear seasonal patterns emerge: MCO dominates summer (afternoon convection), Texas corridor peaks in spring, Northeast pairs rise in winter.](../outputs/figures/fig4_seasonal_heatmap.png){width=72%}
 
-![Geographic view of the top 50 risky airport pairs through DFW. Red lines indicate very high risk (>80), gold lines indicate high risk (65-80). The Florida concentration (MCO, MIA) and Northeast cluster (CLT, LGA) are visible.](../outputs/figures/fig5_us_map.png){width=95%}
+![Geographic view of the top 50 risky airport pairs through DFW. Red lines indicate very high risk (>80), gold lines indicate high risk (65-80). The Florida concentration (MCO, MIA) and Northeast cluster (CLT, LGA) are visible.](../outputs/figures/fig5_us_map.png){width=85%}
 
 ### 4.4 Recommendations
 
@@ -228,7 +236,7 @@ The worst cascading delay day in our dataset illustrates the problem concretely.
 
 **Top cascading routes:** BOS→DFW→BHM (1,108 min cascade), ORD→DFW→PHX (995 min), MEM→DFW→MCO (738 min)
 
-![Cascade delay minutes by hour of inbound arrival, May 28, 2024. The morning wave (06:00-11:00) accounts for ~70% of total cascade damage — overnight delays compounding into the day's schedule.](../outputs/figures/fig2_case_study_timeline.png){width=90%}
+![Cascade delay minutes by hour of inbound arrival, May 28, 2024. The morning wave (06:00-11:00) accounts for ~70% of total cascade damage — overnight delays compounding into the day's schedule.](../outputs/figures/fig2_case_study_timeline.png){width=80%}
 
 **Model performance on this day:** Our top 500 risky pairs flagged 9 of 170 sequences (5.3%). The unflagged sequences involved uncommon route combinations (BOS-BHM, AMA-FLL, LCH-SMF) that rarely appear in the historical data — our monthly pair-level model cannot score routes it hasn't observed enough. This is an honest limitation: extreme weather events produce cascades on unusual route combinations that no historical risk model would predict. The value of our model is in preventing the **predictable, recurring** cascades (MCO-MIA in summer, LGA-PHL in winter) rather than catching every black swan event.
 
@@ -294,11 +302,27 @@ This iterative process improved AUC-ROC from 0.75 to 0.81, added 12 new features
 
 ## 8. Conclusion
 
-Weather-driven cascading delays at DFW are a significant operational challenge. Our analysis demonstrates that intelligent pilot sequence scheduling — avoiding pairs of weather-correlated airports during their vulnerable months — can meaningfully reduce cascading delays.
+**Weather will happen. Cascading delays don't have to.**
 
-The model's 78% improvement over the naive baseline (at K=200) proves that correlated weather risk, cascade mechanics, and turnaround sensitivity capture information that simple individual-airport analysis cannot. The concrete avoid list and swap recommendations provide a direct path to implementation.
+On May 28, 2024, one thunderstorm system at DFW triggered an estimated $4.4 million in cascading delays in a single day. We can't stop the storms — but we can stop scheduling pilots into the path of every one of them. StormChain identifies the **1,220 specific pair-month combinations worth avoiding** and offers a safer alternative for each.
 
-**The tool is available as an interactive dashboard** for exploring airport pair risk, seasonal patterns, model performance, and impact estimates.
+The model's **78% improvement over the naive baseline at K=200** proves that correlated weather risk, cascade mechanics, and turnaround sensitivity capture operational information that simple individual-airport analysis cannot. At K=500 the model flags 176 risky pairs that the naive approach misses entirely.
+
+The system is end-to-end functional today:
+
+- Data pipeline operational across 842K flights, 3.5M weather observations, and 3.3M METAR records
+- Model trained, validated, and deployed (XGBoost AUC-ROC 0.81)
+- Avoid list and swap recommendations available as CSV exports
+- Interactive dashboard live at **stormchain.streamlit.app** with real-time AWC METAR integration
+
+**Next steps for production deployment:**
+
+1. Integrate live TAF forecasts for forward-looking 7-day risk assessment
+2. Plug into AA's crew scheduling system as a pre-assignment risk screen
+3. Extend the model to American's other hubs (CLT, MIA, ORD, PHX, PHL) for 5-6× impact
+4. Acquire actual crew schedule data to validate and refine against real assignments
+
+We built this in a week. The questions worth asking are not whether the approach works — the model and baseline comparison establish that — but how fast it could scale and what data integrations would unlock the largest gains.
 
 ---
 
@@ -310,12 +334,34 @@ The model's 78% improvement over the naive baseline (at K=200) proves that corre
 - 842,000 flights, 3.5M weather records, 3.3M METAR observations
 
 ### B. Data Processing Pipeline
-All code available at project repository. Pipeline runs end-to-end via `python run_pipeline.py`.
+All code available at the project repository. The full pipeline (BTS download, weather acquisition, feature engineering, model training, simulation, recommendations) runs end-to-end via `python run_pipeline.py`. Intermediate parquet caches keep re-runs fast.
 
 ### C. Interactive Dashboard
-- **Live:** https://stormchain.streamlit.app/
-- **Local:** `streamlit run app/streamlit_app.py`
-- **Tabs:** Pair Explorer, Recommendations, US Map, Model Performance, Impact Analysis, Case Study, Seasonal Heatmap
 
-### D. Source Code
-https://github.com/drPod/stormchain
+**Live:** [stormchain.streamlit.app](https://stormchain.streamlit.app)
+**Local:** `streamlit run app/streamlit_app.py`
+
+The dashboard is structured as a single-page tactical "Operations Command Center" with eight sequential sections plus an opening hook and closing statement:
+
+- *Opening hook:* dramatic problem statement with the May 28, 2024 METAR
+- *§ 01 The Tool:* live AWC METAR strip, monthly KPI scoreboard, radar map, top-5 pairs with swap recommendations
+- *§ 02 Patterns:* seasonal risk matrix
+- *§ 03 The Proof:* baseline comparison chart with +78% callouts
+- *§ 04 The Model:* AUC-ROC, AUC-PR curves, feature importance
+- *§ 05 The Payoff:* impact analysis with savings curves and monthly breakdown
+- *§ 06 Incident Forensics:* May 28 case study deep-dive
+- *§ 07 Investigate:* interactive pair explorer
+- *§ 08 The Product:* full 1,220 avoid list and 294 swap recommendations
+- *Closing:* system-ready status block with next steps
+
+Each section is annotated with code-comment-style takeaways (e.g., `// May-June is the epicenter`) for guided reading.
+
+### D. Source Code & Repository
+
+**GitHub:** [github.com/drPod/stormchain](https://github.com/drPod/stormchain)
+
+The repository includes the complete data pipeline, model training code, dashboard application, both PDF and PowerPoint versions of this report, the methodology evolution log, and all generated outputs (avoid list, swap recommendations, model artifacts, simulation results) as CSV and parquet files. Licensed MIT.
+
+### E. Methodology Evolution Log
+
+A complete record of the 12 methodological iterations — what we built, what broke, what we fixed, and what we learned — is documented in `docs/methodology_evolution.md` in the repository. Each entry includes the gap identified, why it mattered, and the specific change applied.
