@@ -196,16 +196,78 @@ st.markdown(f"""
     .risk-badge.mod {{ background: {C['teal']}; color: {C['white']}; }}
 
     /* Streamlit widget styling */
-    .stSelectbox label, .stSlider label {{
+    .stSelectbox label, .stSlider label, .stSelectSlider label {{
         color: {C['muted']} !important;
         font-size: 11px !important;
         letter-spacing: 2px !important;
         text-transform: uppercase !important;
     }}
-    .stSelectbox > div > div {{
+
+    /* Selectbox closed state */
+    .stSelectbox > div > div,
+    [data-baseweb="select"] > div,
+    [data-baseweb="select"] div[role="combobox"] {{
         background-color: {C['panel']} !important;
         border: 1px solid {C['border']} !important;
         color: {C['white']} !important;
+    }}
+    [data-baseweb="select"] * {{
+        color: {C['white']} !important;
+    }}
+    /* Selectbox open dropdown menu */
+    [data-baseweb="popover"] {{
+        background-color: {C['panel']} !important;
+    }}
+    [data-baseweb="popover"] [role="listbox"],
+    [data-baseweb="menu"] {{
+        background-color: {C['panel']} !important;
+        border: 1px solid {C['border']} !important;
+    }}
+    [data-baseweb="menu"] li,
+    [data-baseweb="popover"] [role="option"] {{
+        background-color: {C['panel']} !important;
+        color: {C['ice']} !important;
+    }}
+    [data-baseweb="menu"] li:hover,
+    [data-baseweb="popover"] [role="option"]:hover,
+    [aria-selected="true"] {{
+        background-color: {C['midnight']} !important;
+        color: {C['white']} !important;
+    }}
+    /* Slider track and thumb */
+    .stSlider [data-baseweb="slider"] div[role="slider"] {{
+        background-color: {C['coral']} !important;
+        border-color: {C['coral']} !important;
+    }}
+    .stSlider [data-baseweb="slider"] > div > div > div {{
+        background: {C['coral']} !important;
+    }}
+    /* Metric widget */
+    [data-testid="stMetricValue"] {{
+        color: {C['white']} !important;
+        font-family: 'Georgia', serif !important;
+    }}
+    [data-testid="stMetricLabel"] {{
+        color: {C['muted']} !important;
+    }}
+    [data-testid="stMetricDelta"] {{
+        color: {C['gold']} !important;
+    }}
+    /* Dataframes */
+    [data-testid="stDataFrame"] {{
+        background-color: {C['panel']} !important;
+    }}
+    [data-testid="stDataFrame"] [role="columnheader"] {{
+        background-color: {C['midnight']} !important;
+        color: {C['gold']} !important;
+    }}
+    [data-testid="stDataFrame"] [role="gridcell"] {{
+        background-color: {C['panel']} !important;
+        color: {C['ice']} !important;
+    }}
+    /* Caption text */
+    .stCaption, [data-testid="stCaptionContainer"] {{
+        color: {C['muted']} !important;
     }}
 
     /* Expanders for deep analysis */
@@ -283,6 +345,31 @@ def load_swap_recs():
     path = OUTPUT_DIR / "swap_recommendations.csv"
     return pd.read_csv(path) if path.exists() else None
 
+@st.cache_data(ttl=300)
+def load_roc_curve():
+    path = MODEL_DIR / "roc_curve.parquet"
+    return pd.read_parquet(path) if path.exists() else None
+
+@st.cache_data(ttl=300)
+def load_pr_curve():
+    path = MODEL_DIR / "pr_curve.parquet"
+    return pd.read_parquet(path) if path.exists() else None
+
+@st.cache_data(ttl=300)
+def load_monthly_breakdown():
+    path = SIMULATION_DIR / "monthly_breakdown.parquet"
+    return pd.read_parquet(path) if path.exists() else None
+
+@st.cache_data(ttl=300)
+def load_seasonal_summary():
+    path = OUTPUT_DIR / "seasonal_summary.csv"
+    return pd.read_csv(path) if path.exists() else None
+
+@st.cache_data(ttl=300)
+def load_top_cascading_pairs():
+    path = SIMULATION_DIR / "top_cascading_pairs.parquet"
+    return pd.read_parquet(path) if path.exists() else None
+
 
 risk_scores = load_risk_scores()
 avoid_list = load_avoid_list()
@@ -292,6 +379,11 @@ airports = load_airports()
 sim_results = load_sim_results()
 importance = load_feature_importance()
 swap_recs = load_swap_recs()
+roc_curve = load_roc_curve()
+pr_curve = load_pr_curve()
+monthly_breakdown = load_monthly_breakdown()
+seasonal_summary = load_seasonal_summary()
+top_cascading_pairs = load_top_cascading_pairs()
 
 # =========================================================================
 # HEADER
@@ -514,6 +606,9 @@ with feed_col:
     </p>
     """, unsafe_allow_html=True)
 
+    # Airport city lookup
+    city_lookup = airports.set_index("iata")["city"].to_dict()
+
     st.markdown("<div style='background: " + C['panel'] + "; border: 1px solid " + C['border'] +
                 "; border-radius: 6px; padding: 12px; max-height: 460px; overflow-y: auto;'>", unsafe_allow_html=True)
 
@@ -529,10 +624,20 @@ with feed_col:
             badge_class = "mod"
             badge_text = "MOD"
 
+        city_a = city_lookup.get(row['airport_a'], row['airport_a'])
+        city_b = city_lookup.get(row['airport_b'], row['airport_b'])
+
         st.markdown(f"""
         <div class="feed-row">
-            <span class="pair-label">{row['airport_a']} ↔ {row['airport_b']}</span>
-            <span class="risk-badge {badge_class}">{badge_text} · {risk:.0f}</span>
+            <div style='display: flex; justify-content: space-between; align-items: center;'>
+                <div>
+                    <span class="pair-label">{row['airport_a']} ↔ {row['airport_b']}</span>
+                    <span class="risk-badge {badge_class}">{badge_text} · {risk:.0f}</span>
+                </div>
+            </div>
+            <div style='color: {C['muted']}; font-size: 11px; margin-top: 2px;'>
+                {city_a}  ·  {city_b}
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -756,7 +861,78 @@ with st.expander("▸ SWAP RECOMMENDATIONS · Safe alternatives for flagged pair
         )
         st.caption(f"Avg risk reduction per swap: {swap_recs['risk_reduction'].mean():.0f} points")
 
-with st.expander("▸ MODEL INTERNALS · XGBoost performance", expanded=False):
+with st.expander("▸ MODEL INTERNALS · XGBoost ROC, PR, and feature importance", expanded=False):
+    # Model metrics summary
+    mm_cols = st.columns(4)
+    mm_cols[0].metric("AUC-ROC", "0.81")
+    mm_cols[1].metric("AUC-PR", "0.12")
+    mm_cols[2].metric("Recall", "66%")
+    mm_cols[3].metric("Features", "117")
+
+    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+
+    # ROC and PR curves side by side
+    curve_c1, curve_c2 = st.columns(2)
+    with curve_c1:
+        if roc_curve is not None:
+            fig_roc = go.Figure()
+            fig_roc.add_trace(go.Scatter(
+                x=roc_curve["fpr"], y=roc_curve["tpr"],
+                mode="lines", fill="tozeroy",
+                line=dict(color=C["coral"], width=2),
+                fillcolor=f"rgba(255, 107, 107, 0.15)",
+                name="StormChain",
+            ))
+            fig_roc.add_trace(go.Scatter(
+                x=[0, 1], y=[0, 1],
+                mode="lines", line=dict(color=C["muted"], width=1, dash="dash"),
+                name="Random",
+            ))
+            fig_roc.update_layout(
+                height=320,
+                title=dict(text="ROC Curve (AUC 0.81)", font=dict(color=C["white"], family="Georgia", size=14)),
+                margin=dict(l=50, r=10, t=40, b=40),
+                paper_bgcolor=C["panel"],
+                plot_bgcolor=C["panel"],
+                xaxis=dict(title=dict(text="False Positive Rate", font=dict(color=C["ice"])),
+                           tickfont=dict(color=C["ice"]), gridcolor=C["border"]),
+                yaxis=dict(title=dict(text="True Positive Rate", font=dict(color=C["ice"])),
+                           tickfont=dict(color=C["ice"]), gridcolor=C["border"]),
+                showlegend=False,
+            )
+            st.plotly_chart(fig_roc, use_container_width=True)
+
+    with curve_c2:
+        if pr_curve is not None:
+            fig_pr = go.Figure()
+            fig_pr.add_trace(go.Scatter(
+                x=pr_curve["recall"], y=pr_curve["precision"],
+                mode="lines", fill="tozeroy",
+                line=dict(color=C["gold"], width=2),
+                fillcolor=f"rgba(249, 178, 51, 0.15)",
+                name="StormChain",
+            ))
+            fig_pr.update_layout(
+                height=320,
+                title=dict(text="Precision-Recall Curve (AUC 0.12)", font=dict(color=C["white"], family="Georgia", size=14)),
+                margin=dict(l=50, r=10, t=40, b=40),
+                paper_bgcolor=C["panel"],
+                plot_bgcolor=C["panel"],
+                xaxis=dict(title=dict(text="Recall", font=dict(color=C["ice"])),
+                           tickfont=dict(color=C["ice"]), gridcolor=C["border"]),
+                yaxis=dict(title=dict(text="Precision", font=dict(color=C["ice"])),
+                           tickfont=dict(color=C["ice"]), gridcolor=C["border"]),
+                showlegend=False,
+            )
+            st.plotly_chart(fig_pr, use_container_width=True)
+
+    st.caption(
+        "Low AUC-PR is expected — only 2.5% of sequences are cascading delays. "
+        "The XGBoost model's primary value is feature importance (below), not per-flight prediction. "
+        "The risk scoring model handles sparsity by aggregating to monthly pair-level statistics."
+    )
+
+    # Feature importance
     if importance is not None:
         top_imp = importance.head(15).iloc[::-1]
         fig_imp = go.Figure()
@@ -770,7 +946,7 @@ with st.expander("▸ MODEL INTERNALS · XGBoost performance", expanded=False):
         fig_imp.update_layout(
             height=400,
             title=dict(text="Top 15 Features by Gain", font=dict(color=C["white"], family="Georgia")),
-            margin=dict(l=180, r=10, t=40, b=30),
+            margin=dict(l=200, r=10, t=40, b=30),
             paper_bgcolor=C["panel"],
             plot_bgcolor=C["panel"],
             xaxis=dict(tickfont=dict(color=C["ice"]), gridcolor=C["border"]),
@@ -778,6 +954,142 @@ with st.expander("▸ MODEL INTERNALS · XGBoost performance", expanded=False):
         )
         st.plotly_chart(fig_imp, use_container_width=True)
         st.caption("Coral bars = DFW hub weather features. Blue = other features.")
+
+with st.expander("▸ IMPACT ANALYSIS · Simulation results and dollar estimates", expanded=False):
+    if sim_results is not None:
+        imp_c1, imp_c2 = st.columns(2)
+        with imp_c1:
+            fig_sav = go.Figure()
+            fig_sav.add_trace(go.Scatter(
+                x=sim_results["k"],
+                y=sim_results["dollar_savings"] / 1e6,
+                mode="lines+markers",
+                line=dict(color=C["coral"], width=3),
+                marker=dict(size=10, color=C["gold"]),
+                name="Upper bound",
+            ))
+            fig_sav.update_layout(
+                height=320,
+                title=dict(text="Total Savings by Pairs Avoided (5-year)",
+                           font=dict(color=C["white"], family="Georgia", size=14)),
+                margin=dict(l=50, r=10, t=40, b=40),
+                paper_bgcolor=C["panel"],
+                plot_bgcolor=C["panel"],
+                xaxis=dict(title=dict(text="K Pairs Avoided", font=dict(color=C["ice"])),
+                           tickfont=dict(color=C["ice"]), gridcolor=C["border"]),
+                yaxis=dict(title=dict(text="Savings ($M)", font=dict(color=C["ice"])),
+                           tickfont=dict(color=C["ice"]), gridcolor=C["border"]),
+            )
+            st.plotly_chart(fig_sav, use_container_width=True)
+
+        with imp_c2:
+            fig_pct = go.Figure()
+            fig_pct.add_trace(go.Bar(
+                x=[f"K={int(k)}" for k in sim_results["k"]],
+                y=sim_results["pct_events_prevented"],
+                marker_color=[C["teal"], C["gold"], C["coral"], C["coral"]],
+                text=[f"{v:.1f}%" for v in sim_results["pct_events_prevented"]],
+                textposition="outside",
+                textfont=dict(color=C["white"]),
+            ))
+            fig_pct.update_layout(
+                height=320,
+                title=dict(text="% of Cascading Events Prevented",
+                           font=dict(color=C["white"], family="Georgia", size=14)),
+                margin=dict(l=50, r=10, t=40, b=40),
+                paper_bgcolor=C["panel"],
+                plot_bgcolor=C["panel"],
+                xaxis=dict(tickfont=dict(color=C["ice"]), gridcolor=C["border"]),
+                yaxis=dict(tickfont=dict(color=C["ice"]), gridcolor=C["border"]),
+            )
+            st.plotly_chart(fig_pct, use_container_width=True)
+
+        # Full breakdown table
+        display = sim_results.copy()
+        display["Dollar Savings (5yr)"] = display["dollar_savings"].apply(lambda x: f"${x/1e6:.1f}M")
+        if "adjusted_savings" in display.columns:
+            display["Adjusted (5yr)"] = display["adjusted_savings"].apply(lambda x: f"${x/1e3:.0f}K")
+        display["% Events Prevented"] = display["pct_events_prevented"].apply(lambda x: f"{x:.2f}%")
+        display["Events Prevented"] = display["prevented_events"].apply(lambda x: f"{int(x):,}")
+        display["K"] = display["k"].astype(int)
+
+        cols_to_show = ["K", "Events Prevented", "% Events Prevented", "Dollar Savings (5yr)"]
+        if "Adjusted (5yr)" in display.columns:
+            cols_to_show.append("Adjusted (5yr)")
+        st.dataframe(display[cols_to_show], use_container_width=True, hide_index=True)
+
+        st.caption(
+            "Upper bound assumes every flagged pair was assigned every impacted day. "
+            "Adjusted estimate scales by assignment probability (~1.3%). "
+            "Realistic savings fall between these bounds; targeted scheduling pushes toward the upper bound."
+        )
+
+        # Monthly breakdown if available
+        if monthly_breakdown is not None:
+            best_k = int(sim_results["k"].max())
+            mb = monthly_breakdown[monthly_breakdown["k"] == best_k].copy()
+            month_names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+            mb["month_name"] = mb["month"].apply(lambda m: month_names[m-1])
+
+            fig_mo = go.Figure()
+            fig_mo.add_trace(go.Bar(
+                x=mb["month_name"],
+                y=mb["dollar_savings"] / 1e6,
+                marker_color=[C["coral"] if v > mb["dollar_savings"].quantile(0.7)/1e6
+                              else C["gold"] if v > mb["dollar_savings"].quantile(0.4)/1e6
+                              else C["teal"]
+                              for v in mb["dollar_savings"] / 1e6],
+            ))
+            fig_mo.update_layout(
+                height=260,
+                title=dict(text=f"Monthly Savings Breakdown (K={best_k}, 5-year totals)",
+                           font=dict(color=C["white"], family="Georgia", size=13)),
+                margin=dict(l=50, r=10, t=40, b=30),
+                paper_bgcolor=C["panel"],
+                plot_bgcolor=C["panel"],
+                xaxis=dict(tickfont=dict(color=C["ice"]), showgrid=False),
+                yaxis=dict(title=dict(text="Savings ($M)", font=dict(color=C["ice"])),
+                           tickfont=dict(color=C["ice"]), gridcolor=C["border"]),
+            )
+            st.plotly_chart(fig_mo, use_container_width=True)
+
+with st.expander("▸ SEASONAL PATTERNS · Top pairs by season with geographic patterns", expanded=False):
+    if seasonal_summary is not None:
+        for season in seasonal_summary["season"].unique():
+            st.markdown(f"<p style='color: {C['gold']}; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; font-size: 13px; margin-top: 12px;'>{season}</p>", unsafe_allow_html=True)
+            season_data = seasonal_summary[seasonal_summary["season"] == season]
+            st.dataframe(
+                season_data[["rank", "airport_a", "airport_b", "avg_risk", "geographic_pattern"]],
+                use_container_width=True, hide_index=True,
+            )
+
+with st.expander("▸ CASE STUDY DETAIL · May 28, 2024 — top cascading pairs", expanded=False):
+    if case_study is not None:
+        case_pair_summary = case_study.groupby(["origin", "dest"]).agg(
+            sequences=("total_cascade_minutes", "size"),
+            total_cascade=("total_cascade_minutes", "sum"),
+            avg_cascade=("total_cascade_minutes", "mean"),
+            risk_score=("risk_score", "mean"),
+        ).sort_values("total_cascade", ascending=False).head(20).reset_index()
+        case_pair_summary["total_cascade"] = case_pair_summary["total_cascade"].round(0).astype(int)
+        case_pair_summary["avg_cascade"] = case_pair_summary["avg_cascade"].round(0).astype(int)
+        case_pair_summary["risk_score"] = case_pair_summary["risk_score"].round(1)
+        case_pair_summary.columns = ["Origin", "Dest", "Sequences", "Total Cascade (min)", "Avg Cascade (min)", "Model Risk Score"]
+        st.dataframe(case_pair_summary, use_container_width=True, hide_index=True)
+
+        st.caption(
+            "Many top cascading routes have low or zero model risk scores — extreme weather events produce "
+            "cascades on unusual route combinations that monthly aggregation cannot predict. "
+            "StormChain's strength is recurring seasonal patterns, not one-off extreme events."
+        )
+
+    if top_cascading_pairs is not None:
+        st.markdown(f"<p style='color: {C['gold']}; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; font-size: 13px; margin-top: 20px;'>ALL-TIME TOP 20 CASCADING PAIRS (2019–2024)</p>", unsafe_allow_html=True)
+        tp = top_cascading_pairs.head(20).copy()
+        tp["total_delay_minutes"] = tp["total_delay_minutes"].round(0).astype(int)
+        tp["avg_delay"] = tp["avg_delay"].round(1)
+        tp.columns = ["Pair A", "Pair B", "Total Events", "Total Delay (min)", "Avg Delay (min)"]
+        st.dataframe(tp, use_container_width=True, hide_index=True)
 
 # =========================================================================
 # FOOTER
