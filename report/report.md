@@ -1,7 +1,7 @@
 ---
 header-includes:
   - \usepackage{float}
-  - \floatplacement{figure}{htbp}
+  - \floatplacement{figure}{H}
   - \usepackage{caption}
   - \captionsetup{font=small}
 ---
@@ -184,17 +184,13 @@ At K=500, our model identifies 176 risky pairs that the naive approach misses en
 
 ### 4.3 Top Risky Pairs by Season
 
-**Spring (March-May):** MCO appears in 5 of top 10 — pre-summer Florida thunderstorms combined with cross-country flight turnarounds
-- IAH-MCO, ATL-MCO, ORD-MCO, LAX-MCO, IAH-SAT
+**Spring (March-May).** MCO appears in 5 of the top 10 — pre-summer Florida thunderstorms combined with cross-country flight turnarounds. Representative pairs: IAH-MCO, ATL-MCO, ORD-MCO, LAX-MCO, IAH-SAT.
 
-**Summer (June-August):** Orlando dominates — afternoon convection hits MCO in 8 of top 10 pairs
-- ATL-MCO, LAS-MCO, MCO-MIA, IAH-MCO, ORD-MCO
+**Summer (June-August).** Orlando dominates: afternoon convection hits MCO in 8 of the top 10 pairs. Representative pairs: ATL-MCO, LAS-MCO, MCO-MIA, IAH-MCO, ORD-MCO.
 
-**Fall (September-November):** Lowest risk season; Pacific-to-East corridors lead
-- LAX-ORD, LAX-LAS, LAX-SFO, ATL-ORD
+**Fall (September-November).** Lowest-risk season overall; Pacific-to-East corridors lead the risk table. Representative pairs: LAX-ORD, LAX-LAS, LAX-SFO, ATL-ORD.
 
-**Winter (December-February):** Northeast snow + Pacific wind events
-- ORD-LGA, LAX-ORD, LAX-LAS, DEN-MCO, LAX-SAN (Santa Ana winds)
+**Winter (December-February).** Northeast snow events and Pacific wind events drive risk. Representative pairs: ORD-LGA, LAX-ORD, LAX-LAS, DEN-MCO, LAX-SAN (Santa Ana winds).
 
 ![Risk score heatmap for top 25 pairs by month. Clear seasonal patterns emerge: MCO dominates summer (afternoon convection), Texas corridor peaks in spring, Northeast pairs rise in winter.](../outputs/figures/fig4_seasonal_heatmap.png){width=72%}
 
@@ -202,10 +198,7 @@ At K=500, our model identifies 176 risky pairs that the naive approach misses en
 
 ### 4.4 Recommendations
 
-Our model produces:
-- **1,220 pair-season avoid recommendations** with risk scores and explanations
-- **294 swap recommendations**: for each flagged pair, a safe alternative destination
-- Example: Instead of MCO→DFW→MIA (risk 96), assign MCO→DFW→HRL (risk 30)
+Our model produces three actionable outputs. First, **1,220 pair-season avoid recommendations** with risk scores and the primary reason for the flag (correlated weather, tight turnaround, duty time risk, or fatigue exposure). Second, **294 swap recommendations** that pair each flagged sequence with a safer alternative destination — for example, instead of MCO→DFW→MIA (risk 96), assign MCO→DFW→HRL (risk 30). Third, a **seasonal summary table** showing the top 10 risky pairs per season with their average risk scores and geographic patterns.
 
 ### 4.5 Impact Estimates
 
