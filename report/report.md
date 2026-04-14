@@ -303,5 +303,9 @@ The model's 78% improvement over the naive baseline (at K=200) proves that corre
 All code available at project repository. Pipeline runs end-to-end via `python run_pipeline.py`.
 
 ### C. Interactive Dashboard
-Launch: `streamlit run app/streamlit_app.py`
-Tabs: Pair Explorer, Recommendations, US Map, Model Performance, Impact Analysis, Case Study, Seasonal Heatmap
+- **Live:** https://stormchain.streamlit.app/
+- **Local:** `streamlit run app/streamlit_app.py`
+- **Tabs:** Pair Explorer, Recommendations, US Map, Model Performance, Impact Analysis, Case Study, Seasonal Heatmap
+
+### D. Source Code
+https://github.com/drPod/stormchain

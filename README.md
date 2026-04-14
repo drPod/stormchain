@@ -86,7 +86,7 @@ This project went through 12 iterations of self-critique and improvement. See `d
 ## Links
 
 - **Repository:** https://github.com/drPod/stormchain
-- **Interactive Dashboard:** deployed on Streamlit Community Cloud (URL added after deployment)
+- **Live Dashboard:** https://stormchain.streamlit.app/
 - **Report:** `report/report.pdf`
 - **Presentation:** `report/presentation.pptx`
 
