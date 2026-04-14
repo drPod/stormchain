@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="pandoc">
+  <meta name="author" content="Team Submission">
+  <title>Airline Crew Sequences Meet Bad Weather</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+  <link rel="stylesheet" href="https://unpkg.com/reveal.js@^5/dist/reset.css">
+  <link rel="stylesheet" href="https://unpkg.com/reveal.js@^5/dist/reveal.css">
+  <style>
+    .reveal .sourceCode {  /* see #7635 */
+      overflow: visible;
+    }
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/reveal.js@^5/dist/theme/white.css" id="theme">
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+
+<section id="title-slide">
+  <h1 class="title">Airline Crew Sequences Meet Bad Weather</h1>
+  <p class="subtitle">EPPS-American Airlines Data Challenge — GROW
+26.2</p>
+  <p class="author">Team Submission</p>
+</section>
+
+<section id="slide-1-title" class="slide level1">
+<h1>Slide 1: Title</h1>
+<p><strong>Airline Crew Sequences Meet Bad Weather</strong></p>
+<p>Identifying pilot flight pairings through DFW that should not share a
+sequence</p>
+</section>
+<section id="slide-2-the-problem-in-one-picture" class="slide level1">
+<h1>Slide 2: The Problem in One Picture</h1>
+<p><strong>May 28, 2024 at DFW</strong> — the worst cascading delay day
+in our dataset</p>
+<ul>
+<li>172 inbound flights arrived weather-delayed (19.5%)</li>
+<li>471 outbound flights departed late (53.2%)</li>
+<li><strong>$4.4M in cascading delays — in a single day</strong></li>
+</ul>
+<p>Why? Pilots assigned to risky sequences. When their inbound from MCO
+gets hit by a thunderstorm, they arrive late at DFW, and their outbound
+to LAX departs late — the delay cascades.</p>
+<p><em>The challenge: which pairs of flights should NOT share a pilot
+sequence?</em></p>
+</section>
+<section id="slide-3-what-we-built" class="slide level1">
+<h1>Slide 3: What We Built</h1>
+<p>A working system, not just a methodology document:</p>
+<ul>
+<li><strong>Data pipeline</strong>: 842K flights, 3.5M weather records,
+3.3M real METAR observations</li>
+<li><strong>Machine learning model</strong>: XGBoost with AUC-ROC 0.81
+on held-out 2024 data</li>
+<li><strong>Risk scoring</strong>: 37,920 pair-month risk scores</li>
+<li><strong>Production output</strong>: 1,220 avoid recommendations +
+294 swap suggestions</li>
+<li><strong>Interactive dashboard</strong>: 7 tabs for exploration</li>
+</ul>
+<p>All addressing 4 challenge objectives: delay propagation, duty time,
+missed connections, fatigue</p>
+</section>
+<section id="slide-4-the-model" class="slide level1">
+<h1>Slide 4: The Model</h1>
+<p><strong>Two complementary approaches:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>XGBoost classifier</td>
+<td>Feature discovery and validation</td>
+</tr>
+<tr>
+<td>Composite risk score</td>
+<td>Production rankings</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key features used:</strong></p>
+<ul>
+<li>Joint weather delay probability</li>
+<li>IFR co-occurrence from real METAR data</li>
+<li>Cascade propagation mechanics (actual delay minutes)</li>
+<li>Turnaround adequacy &amp; duty time risk</li>
+<li>Weather correlation, thunderstorm co-occurrence</li>
+<li>Fatigue exposure (WOCL overlap)</li>
+</ul>
+<p><strong>Training:</strong> 1.9M synthetic pilot sequences, temporal
+train/test split, class imbalance handled via
+<code>scale_pos_weight</code>.</p>
+</section>
+<section id="slide-5-the-proof-beating-the-naive-baseline"
+class="slide level1">
+<h1>Slide 5: The Proof — Beating the Naive Baseline</h1>
+<p>We compared our model against a simple baseline: “just avoid pairs of
+two individually high-delay airports.”</p>
+<table>
+<thead>
+<tr>
+<th>Pairs Flagged</th>
+<th>Our Model</th>
+<th>Naive Baseline</th>
+<th><strong>Our Improvement</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>50</td>
+<td>295K min</td>
+<td>195K min</td>
+<td><strong>+51%</strong></td>
+</tr>
+<tr>
+<td>100</td>
+<td>563K min</td>
+<td>335K min</td>
+<td><strong>+68%</strong></td>
+</tr>
+<tr>
+<td><strong>200</strong></td>
+<td><strong>1.09M min</strong></td>
+<td><strong>610K min</strong></td>
+<td><strong>+78%</strong></td>
+</tr>
+<tr>
+<td>500</td>
+<td>2.60M min</td>
+<td>1.62M min</td>
+<td>+60%</td>
+</tr>
+</tbody>
+</table>
+<p>At K=500, <strong>176 pairs our model catches that the naive approach
+misses entirely.</strong></p>
+<p>This proves the model captures correlated weather, cascade mechanics,
+and turnaround sensitivity — beyond common sense.</p>
+</section>
+<section id="slide-6-the-product-actionable-recommendations"
+class="slide level1">
+<h1>Slide 6: The Product — Actionable Recommendations</h1>
+<p>We don’t just identify risk. We prescribe action.</p>
+<p><strong>Avoid list (1,220 pair-season entries):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Season</th>
+<th>Airport A</th>
+<th>Airport B</th>
+<th>Risk</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Summer</td>
+<td>MCO</td>
+<td>MIA</td>
+<td>96</td>
+<td>Correlated thunderstorms</td>
+</tr>
+<tr>
+<td>Summer</td>
+<td>ATL</td>
+<td>MCO</td>
+<td>93</td>
+<td>Same storm system</td>
+</tr>
+<tr>
+<td>Spring</td>
+<td>IAH</td>
+<td>SAT</td>
+<td>77</td>
+<td>Texas storm corridor</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Swap recommendations (294 alternatives):</strong></p>
+<blockquote>
+<p>Instead of MCO → DFW → MIA (risk 96) — try MCO → DFW → HRL (risk
+30)</p>
+</blockquote>
+<p><strong>Seasonal patterns:</strong> - Spring = Southeast thunderstorm
+corridor (MCO dominant) - Summer = Florida convection (MCO in 8 of top
+10) - Winter = Northeast snow + LAX-SAN Santa Ana winds</p>
+</section>
+<section id="slide-7-case-study-may-28-2024" class="slide level1">
+<h1>Slide 7: Case Study — May 28, 2024</h1>
+<p><strong>What actually happened that day (from METAR):</strong></p>
+<ul>
+<li>05:53 UTC: DFW METAR reads <code>+TSRA FG SQ</code> — heavy
+thunderstorm, fog, squall</li>
+<li>Zero visibility for 40+ minutes</li>
+<li>By mid-morning, 172 inbound flights were weather-delayed</li>
+</ul>
+<p><strong>Cascade mechanics:</strong> - 170 realistic pilot sequences
+(one outbound per inbound) - 149 with actual propagated delay (exceeded
+turnaround buffer) - $4.4M cascade cost in a single day</p>
+<p><strong>Honest note:</strong> Our model flagged 9 of 170 sequences.
+The rest involved unusual route combinations (BOS-BHM, AMA-FLL) that
+monthly aggregation can’t score. Our model catches the
+<strong>predictable seasonal patterns</strong>; extreme weather events
+require real-time monitoring to complement.</p>
+</section>
+<section id="slide-8-methodology-evolution" class="slide level1">
+<h1>Slide 8: Methodology Evolution</h1>
+<p>We critiqued our own work and fixed 12 gaps:</p>
+<ol type="1">
+<li>Duty time unaddressed → added FAA Part 117 features</li>
+<li>Missed connections = delays → added buffer adequacy</li>
+<li>Binary weather co-occurrence → built cascade physics model</li>
+<li>Open-Meteo proxy weather → integrated real METAR</li>
+<li>$614M inflated case study → 240× recount → $4.4M honest</li>
+<li>$25M/year upper bound → added assignment-probability adjustment
+($438K)</li>
+<li>Airport-level → added time-of-day considerations … and 5 more
+documented in the report</li>
+</ol>
+<p><strong>Outcome:</strong> AUC-ROC improved from 0.75 → 0.81. Impact
+estimates became defensible instead of inflated.</p>
+<p><em>This is the kind of self-correction that distinguishes rigorous
+analysis from surface-level work.</em></p>
+</section>
+<section id="slide-9-limitations-we-know-what-we-dont-know"
+class="slide level1">
+<h1>Slide 9: Limitations (We Know What We Don’t Know)</h1>
+<p><strong>DFW weather dominates XGBoost feature importance.</strong>
+Expected — it affects every sequence. Risk scoring model mitigates via
+pair-level features. Production should treat DFW weather as a
+conditioning variable.</p>
+<p><strong>Rare route combinations slip through.</strong> Monthly
+aggregation can’t score routes with sparse history. Complement with
+real-time monitoring.</p>
+<p><strong>No access to actual crew schedules.</strong> Synthetic
+sequences may differ from AA’s real assignments. Would need internal
+data to refine.</p>
+<p><strong>Single hub.</strong> Extending to CLT, MIA, ORD, PHX, PHL
+would multiply impact 5-6×.</p>
+</section>
+<section id="slide-10-the-ask-closing" class="slide level1">
+<h1>Slide 10: The Ask &amp; Closing</h1>
+<p><strong>What we’re delivering:</strong></p>
+<ol type="1">
+<li>A working, inspectable pipeline (GitHub repo)</li>
+<li>An interactive dashboard AA’s schedulers could use tomorrow</li>
+<li>A concrete avoid list with swap recommendations</li>
+<li>A validated model with a defensible baseline improvement (+78%)</li>
+<li>Honest documentation of what we know and what we don’t</li>
+</ol>
+<p><strong>$438K/year at DFW today. Multiplied across AA’s hub network,
+materially more.</strong></p>
+<p><strong>Most importantly:</strong> a framework that gets better as
+more data and schedule information become available.</p>
+<p>Thank you.</p>
+</section>
+<section class="slide level1">
+
+</section>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/reveal.js@^5/dist/reveal.js"></script>
+
+  <!-- reveal.js plugins -->
+  <script src="https://unpkg.com/reveal.js@^5/plugin/notes/notes.js"></script>
+  <script src="https://unpkg.com/reveal.js@^5/plugin/search/search.js"></script>
+  <script src="https://unpkg.com/reveal.js@^5/plugin/zoom/zoom.js"></script>
+
+  <script>
+
+      // Full list of configuration options available at:
+      // https://revealjs.com/config/
+      Reveal.initialize({
+        // Display controls in the bottom right corner
+        controls: true,
+
+        // Help the user learn the controls by providing hints, for example by
+        // bouncing the down arrow when they first encounter a vertical slide
+        controlsTutorial: true,
+
+        // Determines where controls appear, "edges" or "bottom-right"
+        controlsLayout: 'bottom-right',
+
+        // Visibility rule for backwards navigation arrows; "faded", "hidden"
+        // or "visible"
+        controlsBackArrows: 'faded',
+
+        // Display a presentation progress bar
+        progress: true,
+
+        // Display the page number of the current slide
+        slideNumber: false,
+
+        // 'all', 'print', or 'speaker'
+        showSlideNumber: 'all',
+
+        // Add the current slide number to the URL hash so that reloading the
+        // page/copying the URL will return you to the same slide
+        hash: true,
+
+        // Start with 1 for the hash rather than 0
+        hashOneBasedIndex: false,
+
+        // Flags if we should monitor the hash and change slides accordingly
+        respondToHashChanges: true,
+
+        // Push each slide change to the browser history
+        history: false,
+
+        // Enable keyboard shortcuts for navigation
+        keyboard: true,
+
+        // Enable the slide overview mode
+        overview: true,
+
+        // Disables the default reveal.js slide layout (scaling and centering)
+        // so that you can use custom CSS layout
+        disableLayout: false,
+
+        // Vertical centering of slides
+        center: true,
+
+        // Enables touch navigation on devices with touch input
+        touch: true,
+
+        // Loop the presentation
+        loop: false,
+
+        // Change the presentation direction to be RTL
+        rtl: false,
+
+        // see https://revealjs.com/vertical-slides/#navigation-mode
+        navigationMode: 'default',
+
+        // Randomizes the order of slides each time the presentation loads
+        shuffle: false,
+
+        // Turns fragments on and off globally
+        fragments: true,
+
+        // Flags whether to include the current fragment in the URL,
+        // so that reloading brings you to the same fragment position
+        fragmentInURL: true,
+
+        // Flags if the presentation is running in an embedded mode,
+        // i.e. contained within a limited portion of the screen
+        embedded: false,
+
+        // Flags if we should show a help overlay when the questionmark
+        // key is pressed
+        help: true,
+
+        // Flags if it should be possible to pause the presentation (blackout)
+        pause: true,
+
+        // Flags if speaker notes should be visible to all viewers
+        showNotes: false,
+
+        // Global override for autoplaying embedded media (null/true/false)
+        autoPlayMedia: null,
+
+        // Global override for preloading lazy-loaded iframes (null/true/false)
+        preloadIframes: null,
+
+        // Number of milliseconds between automatically proceeding to the
+        // next slide, disabled when set to 0, this value can be overwritten
+        // by using a data-autoslide attribute on your slides
+        autoSlide: 0,
+
+        // Stop auto-sliding after user input
+        autoSlideStoppable: true,
+
+        // Use this method for navigation when auto-sliding
+        autoSlideMethod: null,
+
+        // Specify the average time in seconds that you think you will spend
+        // presenting each slide. This is used to show a pacing timer in the
+        // speaker view
+        defaultTiming: null,
+
+        // Enable slide navigation via mouse wheel
+        mouseWheel: false,
+
+        // The display mode that will be used to show slides
+        display: 'block',
+
+        // Hide cursor if inactive
+        hideInactiveCursor: true,
+
+        // Time before the cursor is hidden (in ms)
+        hideCursorTime: 5000,
+
+        // Opens links in an iframe preview overlay
+        previewLinks: false,
+
+        // Transition style (none/fade/slide/convex/concave/zoom)
+        transition: 'slide',
+
+        // Transition speed (default/fast/slow)
+        transitionSpeed: 'default',
+
+        // Transition style for full page slide backgrounds
+        // (none/fade/slide/convex/concave/zoom)
+        backgroundTransition: 'fade',
+
+        // Number of slides away from the current that are visible
+        viewDistance: 3,
+
+        // Number of slides away from the current that are visible on mobile
+        // devices. It is advisable to set this to a lower number than
+        // viewDistance in order to save resources.
+        mobileViewDistance: 2,
+
+        // reveal.js plugins
+        plugins: [
+          RevealNotes,
+          RevealSearch,
+          RevealZoom
+        ]
+      });
+    </script>
+    </body>
+</html>

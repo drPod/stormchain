@@ -1,0 +1,20 @@
+.env
+.venv/
+data/raw/
+data/processed/
+__pycache__/
+*.pyc
+.DS_Store
+.cache.sqlite
+.playwright-mcp/
+outputs/model/*.json
+outputs/model/*.parquet
+outputs/simulation/*.parquet
+outputs/figures/
+# But DO commit the key outputs for reference:
+!outputs/avoid_list.csv
+!outputs/swap_recommendations.csv
+!outputs/seasonal_summary.csv
+!outputs/baseline_comparison.parquet
+!outputs/case_study_cascades.parquet
+!outputs/model/feature_importance.csv

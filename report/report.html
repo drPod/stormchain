@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>AA Data Challenge Report</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      white-space: pre-wrap;
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">AA Data Challenge Report</h1>
+</header>
+<h1 id="airline-crew-sequences-meet-bad-weather">Airline Crew Sequences
+Meet Bad Weather</h1>
+<h2 id="epps-american-airlines-data-challenge-grow-26.2">EPPS-American
+Airlines Data Challenge — GROW 26.2</h2>
+<hr />
+<h2 id="executive-summary">Executive Summary</h2>
+<p>We built a working system that identifies pilot flight sequences
+through DFW most vulnerable to weather-driven cascading delays. The
+final deliverable is a ranked avoid list with swap recommendations,
+backed by a validated machine learning model and an interactive
+decision-support dashboard.</p>
+<p><strong>Scale of analysis:</strong></p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>Dataset</th>
+<th>Volume</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Flight records (BTS)</td>
+<td>842,000 flights, 2019-2024</td>
+</tr>
+<tr>
+<td>General weather (Open-Meteo)</td>
+<td>3,505,920 hourly observations, 80 airports</td>
+</tr>
+<tr>
+<td>Aviation weather (METAR/ASOS)</td>
+<td>3,265,456 observations, 75 airports</td>
+</tr>
+<tr>
+<td>Synthetic pilot sequences</td>
+<td>1,899,119 for model training</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Headline results:</strong></p>
+<ul>
+<li><strong>AUC-ROC 0.81</strong> on held-out 2024 data (117 features,
+1.5M training samples)</li>
+<li><strong>+78% more cascading delay minutes caught than a naive
+baseline</strong> at K=200</li>
+<li><strong>1,220 concrete avoid recommendations</strong> across 4
+seasons, with <strong>294 safe swap alternatives</strong></li>
+<li><strong>$34.5M upper-bound / $438K adjusted</strong> annual savings
+at K=500 pairs avoided</li>
+<li><strong>All 4 challenge objectives addressed</strong>: delay
+propagation (36% coverage), duty violations (29%), missed connections
+(29%), fatigue exposure (feature engineered)</li>
+</ul>
+<p><strong>Case study:</strong> May 28, 2024 — the worst day in our
+dataset — saw 172 weather-delayed inbound flights cascade through DFW,
+producing 170 realistic pilot-sequence cascades costing $4.4M. This
+illustrates both the problem scale and where our model adds versus where
+real-time monitoring is needed.</p>
+<p><strong>What makes this submission distinctive:</strong></p>
+<ol type="1">
+<li>We actually built it — full working pipeline, model, and interactive
+dashboard — not just a methodology document</li>
+<li>We integrated real METAR aviation weather (ceiling height,
+visibility, weather codes) rather than general meteorology</li>
+<li>We iteratively self-critiqued and fixed 12 methodological gaps
+(Section 7)</li>
+<li>We output a concrete product (avoid list + swap recommendations)
+rather than an academic analysis</li>
+</ol>
+<hr />
+<h2 id="problem-statement">1. Problem Statement</h2>
+<p>American Airlines operates approximately 900 daily departures from
+DFW. Pilots fly sequences — an inbound flight from Airport A to DFW,
+followed by an outbound flight from DFW to Airport B. When Airport A
+experiences weather delays, the pilot arrives late at DFW, causing the
+outbound to B to depart late. If Airport B is simultaneously
+experiencing weather, the delay compounds.</p>
+<p>The challenge asks: which pairs of airports (A, B) should not be
+assigned to the same pilot sequence through DFW?</p>
+<p>This problem has four dimensions, as specified in the challenge: 1.
+<strong>Delay propagation</strong> across multiple flights 2.
+<strong>Duty time violations</strong> when delays push pilots past
+FAA-mandated maximums 3. <strong>Missed connections</strong> when delays
+exceed turnaround buffers 4. <strong>Fatigue risk</strong> when
+sequences span overnight hours</p>
+<hr />
+<h2 id="data-sources">2. Data Sources</h2>
+<h3 id="flight-delay-data">2.1 Flight Delay Data</h3>
+<p>Bureau of Transportation Statistics (BTS) on-time performance data,
+accessed via Kaggle: - <strong>Training:</strong> 2019, 2021-2023
+(213,951 DFW flights) - <strong>Test:</strong> 2024 (628,043 DFW
+flights) - 2020 excluded due to COVID-era anomalies - Key fields:
+origin, destination, scheduled/actual times, delay minutes by cause
+(weather, carrier, NAS, security, late aircraft)</p>
+<h3 id="general-weather-data">2.2 General Weather Data</h3>
+<p>Open-Meteo Historical API — hourly reanalysis data for all 80
+airports: - 3,505,920 hourly observations (2019-2024) - Variables:
+temperature, precipitation, wind speed/gusts, cloud cover, snow, weather
+codes (WMO) - Used for broad weather pattern analysis and correlation
+features</p>
+<h3 id="aviation-weather-data-metar">2.3 Aviation Weather Data
+(METAR)</h3>
+<p>Iowa Environmental Mesonet (IEM) ASOS archive — actual airport
+weather station observations: - 3,265,456 METAR observations across 75
+airports - Real ceiling height (feet), visibility (statute miles),
+decoded weather codes - Used for aviation-specific IFR/LIFR
+classification — the actual conditions that cause ground stops</p>
+<h3 id="airport-reference-data">2.4 Airport Reference Data</h3>
+<p>80 US airports with AA service through DFW, including coordinates,
+timezone offsets, FAA regions, and storm corridor classifications
+(Tornado Alley, Gulf Coast hurricane track, Northeast winter storm
+corridor).</p>
+<hr />
+<h2 id="methodology">3. Methodology</h2>
+<h3 id="data-pipeline">3.1 Data Pipeline</h3>
+<p>All data was downloaded, standardized, and merged into a unified
+dataset: - BTS flight records filtered to <code>Origin = DFW</code> or
+<code>Dest = DFW</code> - Weather aligned to flight dates and airport
+locations - METAR processed into daily aviation weather summaries (IFR
+hours, ceiling stats, visibility stats) - Daily weather aggregated per
+airport with derived features (thunderstorm hours, fog hours, pressure
+volatility, IFR proxy conditions)</p>
+<h3 id="feature-engineering">3.2 Feature Engineering</h3>
+<p><strong>Airport-level features</strong> (per airport, per month): -
+Weather delay rate, mean, and 90th percentile from BTS data -
+Departure/arrival delay rates, cancellation rates - From weather:
+precipitation days, thunderstorm hours, high wind hours, IFR hours (from
+METAR)</p>
+<p><strong>Pair-level features</strong> (per pair A-B, per month) — the
+core of our analysis: - <em>Joint weather delay probability</em>: P(A
+delayed AND B delayed on the same day) - <em>Conditional delay
+probability</em>: P(B delayed | A delayed) - <em>Weather
+correlations</em>: Pearson correlation of daily precipitation and wind
+between A and B - <em>Thunderstorm co-occurrence</em>: fraction of days
+with simultaneous thunderstorms - <em>IFR co-occurrence</em>: fraction
+of days with simultaneous IFR conditions (from METAR) - <em>Geographic
+features</em>: distance, latitude/longitude difference, same-region
+flag, storm corridor membership - <em>Missed connection
+probability</em>: P(historical delay from A &gt; typical turnaround gap)
+- <em>Duty violation risk</em>: estimated total duty time relative to
+FAA 14-hour maximum - <em>Fatigue exposure</em>: overlap with Window of
+Circadian Low (2am-6am) - <em>Cyclical month encoding</em>: sin/cos
+transformation for seasonality</p>
+<h3 id="modeling-approach">3.3 Modeling Approach</h3>
+<p>We employ two complementary models:</p>
+<p><strong>Composite Risk Scoring Model</strong> (production output): A
+weighted combination of pair-level features, normalized to a 0-100
+scale. Weights are allocated across all four challenge objectives: -
+Delay propagation features: 60% weight - Missed connection features: 15%
+weight - Duty time features: 10% weight - Fatigue features: 10% weight -
+Weather correlation features: 5%</p>
+<p>This produces a ranked list of all pair-month combinations, from
+which we generate the avoid list.</p>
+<p><strong>XGBoost Binary Classifier</strong> (validation and feature
+importance): Trained on 1.9 million synthetic pilot sequences
+constructed from same-day inbound/outbound flights at DFW. The target
+variable is <code>cascading_delay</code> = 1 when both the inbound
+arrival delay exceeds 15 minutes AND the outbound departure delay
+exceeds 15 minutes, with weather as a contributing factor.</p>
+<ul>
+<li>117 features including pair-level, weather, temporal, and
+operational variables</li>
+<li>Temporal train/test split: 2019+2021-2023 for training, 2024 for
+testing</li>
+<li>Class imbalance handled via <code>scale_pos_weight</code> (42.7:1
+ratio)</li>
+<li>Early stopping at 94 trees (of 500 maximum)</li>
+</ul>
+<p><strong>Why two models?</strong> The XGBoost classifier’s primary
+value is feature importance — it reveals which factors drive cascading
+delays. But with a 2.5% positive rate, per-flight prediction has
+inherently low precision (AUC-PR = 0.12). The risk scoring model handles
+this sparsity by aggregating to monthly pair-level statistics, producing
+stable, actionable rankings.</p>
+<h3 id="cascade-propagation-model">3.4 Cascade Propagation Model</h3>
+<p>Beyond binary co-occurrence, we model the actual delay physics: - For
+each synthetic sequence:
+<code>propagated_delay = max(0, inbound_arr_delay - turnaround_gap)</code>
+- <code>total_cascade = propagated_delay + outbound_weather_delay</code>
+- This quantifies actual delay minutes attributable to the pairing
+decision</p>
+<h3 id="impact-analysis">3.5 Impact Analysis</h3>
+<p>Retrospective analysis on historical data: for each pair-month
+flagged by our model, how many actual cascading delay events would have
+been prevented?</p>
+<p>We report two estimates: - <strong>Upper bound</strong>: assumes
+every flagged pair was assigned on every impacted day - <strong>Adjusted
+estimate</strong>: scaled by assignment probability (~1.3% — 247 daily
+sequences / 19,503 possible pairs)</p>
+<hr />
+<h2 id="results">4. Results</h2>
+<h3 id="model-performance">4.1 Model Performance</h3>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AUC-ROC</td>
+<td>0.81</td>
+</tr>
+<tr>
+<td>AUC-PR</td>
+<td>0.12</td>
+</tr>
+<tr>
+<td>Recall at operating threshold</td>
+<td>66%</td>
+</tr>
+<tr>
+<td>Accuracy</td>
+<td>79%</td>
+</tr>
+<tr>
+<td>Features used</td>
+<td>117</td>
+</tr>
+<tr>
+<td>Training samples</td>
+<td>1,490,677</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Top predictive features:</strong> DFW heavy rain hours, time
+of day (cyclical), DFW precipitation total, DFW poor visibility hours,
+connection minutes, airport B precipitation. DFW weather dominates
+because it affects every sequence — a known limitation discussed in
+Section 6.</p>
+<h3 id="baseline-comparison">4.2 Baseline Comparison</h3>
+<p>We compared our model against a naive baseline that simply flags
+pairs where both airports individually have above-median weather delay
+rates.</p>
+<table>
+<thead>
+<tr>
+<th>Pairs Flagged (K)</th>
+<th>Our Model</th>
+<th>Naive Baseline</th>
+<th>Improvement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>50</td>
+<td>295K min caught</td>
+<td>195K min</td>
+<td><strong>+50.8%</strong></td>
+</tr>
+<tr>
+<td>100</td>
+<td>563K min caught</td>
+<td>335K min</td>
+<td><strong>+68.3%</strong></td>
+</tr>
+<tr>
+<td>200</td>
+<td>1.09M min caught</td>
+<td>610K min</td>
+<td><strong>+78.3%</strong></td>
+</tr>
+<tr>
+<td>500</td>
+<td>2.60M min caught</td>
+<td>1.62M min</td>
+<td><strong>+60.5%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>At K=500, our model identifies 176 risky pairs that the naive
+approach misses entirely — pairs where the risk comes from correlated
+weather patterns (now including real METAR IFR co-occurrence), tight
+turnarounds, or cascade mechanics rather than individually high delay
+rates.</p>
+<h3 id="top-risky-pairs-by-season">4.3 Top Risky Pairs by Season</h3>
+<p><strong>Spring (March-May):</strong> MCO appears in 5 of top 10 —
+pre-summer Florida thunderstorms combined with cross-country flight
+turnarounds - IAH-MCO, ATL-MCO, ORD-MCO, LAX-MCO, IAH-SAT</p>
+<p><strong>Summer (June-August):</strong> Orlando dominates — afternoon
+convection hits MCO in 8 of top 10 pairs - ATL-MCO, LAS-MCO, MCO-MIA,
+IAH-MCO, ORD-MCO</p>
+<p><strong>Fall (September-November):</strong> Lowest risk season;
+Pacific-to-East corridors lead - LAX-ORD, LAX-LAS, LAX-SFO, ATL-ORD</p>
+<p><strong>Winter (December-February):</strong> Northeast snow + Pacific
+wind events - ORD-LGA, LAX-ORD, LAX-LAS, DEN-MCO, LAX-SAN (Santa Ana
+winds)</p>
+<h3 id="recommendations">4.4 Recommendations</h3>
+<p>Our model produces: - <strong>1,220 pair-season avoid
+recommendations</strong> with risk scores and explanations - <strong>294
+swap recommendations</strong>: for each flagged pair, a safe alternative
+destination - Example: Instead of MCO→DFW→MIA (risk 96), assign
+MCO→DFW→HRL (risk 30)</p>
+<h3 id="impact-estimates">4.5 Impact Estimates</h3>
+<table>
+<thead>
+<tr>
+<th>Pairs Avoided</th>
+<th>Upper Bound (annual)</th>
+<th>Adjusted (annual)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>50</td>
+<td>$4.9M</td>
+<td>$62K</td>
+</tr>
+<tr>
+<td>100</td>
+<td>$8.5M</td>
+<td>$108K</td>
+</tr>
+<tr>
+<td>200</td>
+<td>$15.7M</td>
+<td>$198K</td>
+</tr>
+<tr>
+<td>500</td>
+<td>$34.5M</td>
+<td>$438K</td>
+</tr>
+</tbody>
+</table>
+<p>The adjusted estimate is conservative (assumes random assignment).
+Targeted scheduling — which is what this tool enables — would push
+savings substantially above the adjusted figure as flagged pairs are
+specifically de-prioritized.</p>
+<hr />
+<h2 id="case-study-may-28-2024">5. Case Study: May 28, 2024</h2>
+<p>The worst cascading delay day in our dataset illustrates the problem
+concretely.</p>
+<p><strong>What happened:</strong> A severe thunderstorm system moved
+through the DFW metroplex. METAR observations recorded
+<code>+TSRA FG SQ</code> (heavy thunderstorm, fog, squall) with zero
+visibility at 05:53 UTC.</p>
+<p><strong>Impact:</strong> - 172 inbound flights arrived with weather
+delays (19.5% of all inbound) - 471 outbound flights departed more than
+15 minutes late (53.2%) - Average weather delay: 162 minutes - 170
+realistic cascading sequences (one outbound per inbound pilot) - 149
+sequences with actual propagated delay (delay exceeded turnaround
+buffer) - Estimated cascade cost: $4.4 million</p>
+<p><strong>Top cascading routes:</strong> BOS→DFW→BHM (1,108 min
+cascade), ORD→DFW→PHX (995 min), MEM→DFW→MCO (738 min)</p>
+<p><strong>Model performance on this day:</strong> Our top 500 risky
+pairs flagged 9 of 170 sequences (5.3%). The unflagged sequences
+involved uncommon route combinations (BOS-BHM, AMA-FLL, LCH-SMF) that
+rarely appear in the historical data — our monthly pair-level model
+cannot score routes it hasn’t observed enough. This is an honest
+limitation: extreme weather events produce cascades on unusual route
+combinations that no historical risk model would predict. The value of
+our model is in preventing the <strong>predictable, recurring</strong>
+cascades (MCO-MIA in summer, LGA-PHL in winter) rather than catching
+every black swan event.</p>
+<hr />
+<h2 id="discussion">6. Discussion</h2>
+<h3 id="addressing-the-challenge-questions">6.1 Addressing the Challenge
+Questions</h3>
+<p><strong>What features are important?</strong> DFW hub weather is the
+strongest predictor (affects every sequence), followed by time of day,
+connection minutes, and endpoint weather. Correlated weather between A
+and B matters, but less than individual airport delay propensity
+combined with turnaround tightness.</p>
+<p><strong>What model type works best?</strong> A two-model approach:
+XGBoost for feature discovery and validation, composite risk scoring for
+production rankings. The risk scoring model handles sparsity better by
+aggregating to monthly pair-level statistics.</p>
+<p><strong>How to handle seasonality?</strong> Cyclical encoding
+(sin/cos of month) plus separate risk scores per month. The seasonal
+summary shows distinct patterns: spring thunderstorms, summer Florida
+convection, winter Northeast storms.</p>
+<p><strong>Sparsity of severe weather?</strong> Severe weather events
+affect ~2.5% of sequences. We address this through: (a) monthly
+aggregation smoothing daily noise, (b) continuous severity features
+rather than binary thresholds, (c) class weighting in XGBoost (42.7:1),
+(d) AUC-PR as the evaluation metric rather than accuracy.</p>
+<p><strong>Appropriate accuracy metrics?</strong> AUC-PR is the primary
+metric for the classifier (rare-event problem with 2.5% base rate, where
+accuracy is misleading). For the risk scoring model, we evaluate via the
+baseline comparison — our model catches 78% more cascade minutes than
+the naive approach at K=200 and 60% more at K=500, proving value-add
+beyond common sense.</p>
+<h3 id="limitations">6.2 Limitations</h3>
+<ul>
+<li><strong>DFW weather dominance:</strong> The XGBoost model’s top
+features are all DFW weather variables. This is expected — DFW weather
+affects every sequence — but it means the model is primarily predicting
+“bad day at hub” rather than “bad pair specifically.” Our risk scoring
+model mitigates this by using pair-level correlation features (joint
+delay probability, weather correlation) rather than individual airport
+features. In production, DFW weather state should be treated as a
+conditioning variable: “given today’s DFW forecast, which pairs need
+attention?”</li>
+<li><strong>Rare route combinations:</strong> The May 28 case study
+revealed that extreme weather cascades often hit unusual route
+combinations (BOS-BHM, AMA-FLL) that our monthly model cannot score.
+Historical pair-level models are best at catching recurring seasonal
+patterns, not one-off extremes. Real-time weather monitoring would
+complement the model for extreme events.</li>
+<li><strong>No actual crew schedules:</strong> We construct synthetic
+sequences by matching inbound and outbound flights. Actual AA crew
+assignments may differ significantly, affecting which pairs are actually
+at risk.</li>
+<li><strong>METAR integration depth:</strong> We integrated real METAR
+data (ceiling, visibility, weather codes) for IFR classification,
+improving over general weather proxies. Full production should use
+real-time METAR/TAF feeds from the Aviation Weather Center for
+forward-looking scheduling.</li>
+<li><strong>Single hub:</strong> Analysis covers DFW only. Extending to
+all AA hubs (CLT, MIA, ORD, PHX, PHL) would multiply both the impact and
+the model’s value.</li>
+</ul>
+<h3 id="operationalization">6.3 Operationalization</h3>
+<p>In production, this model would integrate with AA’s crew scheduling
+system: 1. <strong>Monthly:</strong> Update risk scores with latest
+flight and weather data 2. <strong>Weekly:</strong> Cross-reference
+7-day TAF forecasts with risk score table 3. <strong>Daily:</strong>
+Flag pilot sequences pairing airports in current weather advisories 4.
+<strong>Real-time:</strong> When weather deteriorates at an endpoint,
+automatically suggest sequence swaps</p>
+<hr />
+<h2 id="methodology-evolution">7. Methodology Evolution</h2>
+<p>Our approach evolved through iterative self-critique. After the
+initial build, we identified 12 methodological gaps and addressed each
+one:</p>
+<ol type="1">
+<li>Duty time violations unaddressed → added FAA Part 117 features</li>
+<li>Fatigue risk unmodeled → added WOCL exposure scoring</li>
+<li>Missed connections treated as delays → added buffer adequacy
+features</li>
+<li>DFW weather drowning pair-level signal → acknowledged, proposed
+stratification</li>
+<li>No forward-looking capability → designed operational workflow</li>
+<li>General weather vs. aviation weather → integrated real METAR
+data</li>
+<li>Inflated impact estimates → added assignment probability
+scaling</li>
+<li>Low AUC-PR unexplained → reframed model’s role as feature
+discovery</li>
+<li>Airport-level vs. flight-level analysis → identified time-of-day
+patterns</li>
+<li>Binary co-occurrence vs. cascade physics → built propagation
+model</li>
+<li>No concrete case study → analyzed May 28, 2024 in detail</li>
+<li>No actionable output → produced avoid lists with swap
+recommendations</li>
+</ol>
+<p>This iterative process improved AUC-ROC from 0.75 to 0.81, added 12
+new features, and transformed the output from risk scores into
+actionable scheduling recommendations.</p>
+<hr />
+<h2 id="conclusion">8. Conclusion</h2>
+<p>Weather-driven cascading delays at DFW are a significant operational
+challenge. Our analysis demonstrates that intelligent pilot sequence
+scheduling — avoiding pairs of weather-correlated airports during their
+vulnerable months — can meaningfully reduce cascading delays.</p>
+<p>The model’s 78% improvement over the naive baseline (at K=200) proves
+that correlated weather risk, cascade mechanics, and turnaround
+sensitivity capture information that simple individual-airport analysis
+cannot. The concrete avoid list and swap recommendations provide a
+direct path to implementation.</p>
+<p><strong>The tool is available as an interactive dashboard</strong>
+for exploring airport pair risk, seasonal patterns, model performance,
+and impact estimates.</p>
+<hr />
+<h2 id="appendix">Appendix</h2>
+<h3 id="a.-technical-stack">A. Technical Stack</h3>
+<ul>
+<li>Python 3.12, pandas, XGBoost, scikit-learn, plotly, Streamlit</li>
+<li>Data: BTS (Kaggle), Open-Meteo API, Iowa Environmental Mesonet ASOS
+archive</li>
+<li>842,000 flights, 3.5M weather records, 3.3M METAR observations</li>
+</ul>
+<h3 id="b.-data-processing-pipeline">B. Data Processing Pipeline</h3>
+<p>All code available at project repository. Pipeline runs end-to-end
+via <code>python run_pipeline.py</code>.</p>
+<h3 id="c.-interactive-dashboard">C. Interactive Dashboard</h3>
+<p>Launch: <code>streamlit run app/streamlit_app.py</code> Tabs: Pair
+Explorer, Recommendations, US Map, Model Performance, Impact Analysis,
+Case Study, Seasonal Heatmap</p>
+</body>
+</html>
