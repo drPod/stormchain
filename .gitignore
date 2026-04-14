@@ -7,5 +7,8 @@ __pycache__/
 .DS_Store
 .cache.sqlite
 .playwright-mcp/
+node_modules/
+package-lock.json
+package.json
 # Streamlit Cloud needs the output parquets to run the dashboard
 # All committed outputs stay under 3MB total
