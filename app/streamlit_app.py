@@ -323,6 +323,153 @@ st.markdown(f"""
         font-weight: 600;
     }}
 
+    /* Opening hook */
+    .hook {{
+        padding: 60px 0 80px 0;
+        border-bottom: 1px solid {C['border']};
+        margin-bottom: 48px;
+    }}
+    .hook-timestamp {{
+        font-family: 'Consolas', monospace;
+        font-size: 13px;
+        letter-spacing: 4px;
+        color: {C['gold']};
+        margin-bottom: 24px;
+    }}
+    .hook-metar {{
+        font-family: 'Consolas', monospace;
+        font-size: 72px;
+        font-weight: bold;
+        color: {C['coral']};
+        letter-spacing: 4px;
+        line-height: 1;
+        margin-bottom: 16px;
+    }}
+    .hook-metar-desc {{
+        font-family: 'Georgia', serif;
+        font-style: italic;
+        font-size: 20px;
+        color: {C['ice']};
+        margin-bottom: 48px;
+    }}
+    .hook-narrative {{
+        font-family: 'Georgia', serif;
+        font-size: 28px;
+        color: {C['white']};
+        line-height: 1.5;
+        max-width: 950px;
+        margin-bottom: 32px;
+    }}
+    .hook-stats {{
+        display: flex;
+        gap: 40px;
+        margin: 32px 0 48px 0;
+    }}
+    .hook-stat {{
+        border-left: 2px solid {C['coral']};
+        padding-left: 16px;
+    }}
+    .hook-stat-value {{
+        font-family: 'Georgia', serif;
+        font-size: 48px;
+        font-weight: bold;
+        color: {C['white']};
+        line-height: 1;
+    }}
+    .hook-stat-label {{
+        font-size: 12px;
+        color: {C['muted']};
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        margin-top: 4px;
+    }}
+    .hook-mission {{
+        font-family: 'Georgia', serif;
+        font-size: 32px;
+        color: {C['gold']};
+        line-height: 1.3;
+        margin-top: 32px;
+        max-width: 900px;
+    }}
+    .scroll-hint {{
+        margin-top: 40px;
+        font-family: 'Consolas', monospace;
+        font-size: 12px;
+        letter-spacing: 3px;
+        color: {C['muted']};
+    }}
+    .scroll-hint .arrow {{
+        display: inline-block;
+        animation: bounce 2s infinite;
+        color: {C['coral']};
+        font-size: 18px;
+        margin-left: 8px;
+    }}
+    @keyframes bounce {{
+        0%, 100% {{ transform: translateY(0); }}
+        50% {{ transform: translateY(6px); }}
+    }}
+
+    /* Closing section */
+    .closing {{
+        padding: 60px 0 40px 0;
+        margin-top: 60px;
+        border-top: 1px solid {C['border']};
+    }}
+    .closing-kicker {{
+        display: inline-block;
+        font-family: 'Consolas', monospace;
+        font-size: 11px;
+        letter-spacing: 4px;
+        color: {C['green']};
+        padding: 4px 10px;
+        border: 1px solid {C['green']};
+        border-radius: 2px;
+        margin-bottom: 24px;
+    }}
+    .closing-title {{
+        font-family: 'Georgia', serif;
+        font-size: 44px;
+        font-weight: bold;
+        color: {C['white']};
+        line-height: 1.2;
+        margin-bottom: 20px;
+        max-width: 1000px;
+    }}
+    .closing-tagline {{
+        font-family: 'Georgia', serif;
+        font-size: 22px;
+        font-style: italic;
+        color: {C['ice']};
+        margin-bottom: 32px;
+        max-width: 900px;
+    }}
+    .closing-ascii {{
+        font-family: 'Consolas', monospace;
+        background: {C['panel']};
+        border: 1px solid {C['border']};
+        border-left: 3px solid {C['green']};
+        padding: 20px 24px;
+        font-size: 14px;
+        color: {C['ice']};
+        line-height: 1.8;
+        margin: 32px 0;
+        max-width: 700px;
+    }}
+    .closing-ascii .line-ok {{ color: {C['green']}; }}
+    .closing-ascii .line-info {{ color: {C['gold']}; }}
+    .closing-cta {{
+        margin-top: 40px;
+        padding: 20px 0;
+        border-top: 1px solid {C['border']};
+        font-size: 14px;
+        color: {C['muted']};
+    }}
+    .closing-cta a {{
+        color: {C['coral']};
+        text-decoration: none;
+    }}
+
     /* Expanders for deep analysis */
     .stExpander {{
         background: {C['panel']};
@@ -462,8 +609,40 @@ seasonal_summary = load_seasonal_summary()
 top_cascading_pairs = load_top_cascading_pairs()
 
 # =========================================================================
-# HEADER
+# OPENING HOOK — the problem statement before the tool
 # =========================================================================
+_hook_html = (
+    '<div class="hook">'
+    '<div class="hook-timestamp">TRANSCRIPT · MAY 28, 2024 · 05:53 UTC · DFW METAR</div>'
+    '<div class="hook-metar">+TSRA FG SQ</div>'
+    '<div class="hook-metar-desc">Heavy thunderstorm. Fog. Squall. Zero visibility.</div>'
+    '<div class="hook-narrative">'
+    f'<strong style="color: {C["white"]};">What followed destroyed the day\'s schedule.</strong><br>'
+    'One weather system. One hub. A pilot caught on a flight from MCO arrived at DFW late, '
+    'their outbound to MIA cascaded, their passengers missed connections — '
+    'and the chain reaction spread through the network for 16 hours.'
+    '</div>'
+    '<div class="hook-stats">'
+    '<div class="hook-stat"><div class="hook-stat-value">172</div><div class="hook-stat-label">inbound delayed</div></div>'
+    '<div class="hook-stat"><div class="hook-stat-value">471</div><div class="hook-stat-label">outbound cascaded</div></div>'
+    '<div class="hook-stat"><div class="hook-stat-value">$4.4M</div><div class="hook-stat-label">cost, one day</div></div>'
+    '</div>'
+    '<div class="hook-mission">StormChain was built to prevent the next one.</div>'
+    '<div class="scroll-hint">SCROLL TO INVESTIGATE <span class="arrow">▼</span></div>'
+    '</div>'
+)
+st.markdown(_hook_html, unsafe_allow_html=True)
+
+# =========================================================================
+# § 01 — THE TOOL (operations command center)
+# =========================================================================
+section_header(
+    "§ 01 / THE TOOL",
+    "A real-time view of crew sequence risk through DFW",
+    "Every metric below updates with the month selector. The radar shows the top-K riskiest pairs for that month. "
+    "The risk feed lists them with city names and severity. Pick a month to see how the pattern shifts.",
+)
+
 now = datetime.now()
 current_month = st.session_state.get("current_month", now.month)
 
@@ -722,10 +901,10 @@ with feed_col:
 st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
 
 # =========================================================================
-# § 01 — SEASONAL INTELLIGENCE
+# § 02 — SEASONAL INTELLIGENCE
 # =========================================================================
 section_header(
-    "§ 01 / PATTERNS",
+    "§ 02 / PATTERNS",
     "Weather risk isn't random — it follows the calendar",
     "Spring thunderstorms in the Southeast, Florida afternoon convection in summer, "
     "Northeast snowstorms in winter. The months when pairs get dangerous are highly predictable.",
@@ -767,10 +946,10 @@ comment(
 
 
 # =========================================================================
-# § 02 — MODEL VALIDATION
+# § 03 — MODEL VALIDATION
 # =========================================================================
 section_header(
-    "§ 02 / THE PROOF",
+    "§ 03 / THE PROOF",
     "Beating the naive baseline by 78%",
     "The dumbest possible approach: flag pairs where both airports individually have above-median weather delays. "
     "StormChain catches dramatically more actual cascading delays — because it captures correlated weather, "
@@ -813,10 +992,10 @@ comment(
 
 
 # =========================================================================
-# § 03 — HOW THE MODEL SEES THE WORLD
+# § 04 — HOW THE MODEL SEES THE WORLD
 # =========================================================================
 section_header(
-    "§ 03 / THE MODEL",
+    "§ 04 / THE MODEL",
     "What drives cascading delays",
     "An XGBoost classifier trained on 1.9M synthetic pilot sequences, validated on held-out 2024 data.",
 )
@@ -918,10 +1097,10 @@ if importance is not None:
 
 
 # =========================================================================
-# § 04 — IMPACT & PAYOFF
+# § 05 — IMPACT & PAYOFF
 # =========================================================================
 section_header(
-    "§ 04 / THE PAYOFF",
+    "§ 05 / THE PAYOFF",
     "What this is worth in dollars",
     "Retrospective analysis on 5 years of historical data — how many cascading delay events would StormChain "
     "have flagged in advance, and what's that worth at the industry-standard $75/delay-minute rate.",
@@ -1023,10 +1202,10 @@ if sim_results is not None:
 
 
 # =========================================================================
-# § 05 — CASE STUDY: MAY 28, 2024
+# § 06 — CASE STUDY: MAY 28, 2024
 # =========================================================================
 section_header(
-    "§ 05 / INCIDENT FORENSICS",
+    "§ 06 / INCIDENT FORENSICS",
     "One day that cost $4.4M",
     "May 28, 2024 — the worst cascading delay day in the entire dataset. "
     "A single thunderstorm system moved through DFW at dawn and destroyed the day's schedule.",
@@ -1116,10 +1295,10 @@ if case_study is not None:
 
 
 # =========================================================================
-# § 06 — PAIR EXPLORER
+# § 07 — PAIR EXPLORER
 # =========================================================================
 section_header(
-    "§ 06 / INVESTIGATE",
+    "§ 07 / INVESTIGATE",
     "Query any airport pair",
     "Pick any two airports below to see their full monthly risk breakdown — when they're dangerous together, and when they're fine.",
 )
@@ -1171,10 +1350,10 @@ if len(pair_data) > 0:
 
 
 # =========================================================================
-# § 07 — THE PRODUCT
+# § 08 — THE PRODUCT
 # =========================================================================
 section_header(
-    "§ 07 / THE PRODUCT",
+    "§ 08 / THE PRODUCT",
     "1,220 avoid recommendations · 294 swap alternatives",
     "Not a risk score. A concrete list of pair-season combinations to avoid in pilot sequencing, "
     "with safe alternative destinations for each flagged pair.",
@@ -1215,14 +1394,34 @@ if swap_recs is not None:
 
 
 # =========================================================================
-# FOOTER
+# § FINAL — CLOSING STATEMENT
 # =========================================================================
-st.markdown(f"""
-<div style='margin-top: 32px; padding: 16px 0; border-top: 1px solid {C['border']};
-            text-align: center; color: {C['muted']}; font-size: 11px; letter-spacing: 2px;'>
-    STORMCHAIN · EPPS-AMERICAN AIRLINES DATA CHALLENGE GROW 26.2 · drPod<br>
-    <span style='color: {C['ice']};'>
-        github.com/drPod/stormchain
-    </span>
-</div>
-""", unsafe_allow_html=True)
+_closing_html = (
+    '<div class="closing">'
+    '<span class="closing-kicker">§ FINAL / SYSTEM READY</span>'
+    '<h2 class="closing-title">Weather will happen.<br>Cascading delays don\'t have to.</h2>'
+    '<p class="closing-tagline">'
+    'On May 28, 2024 a storm cost $4.4M in a single day. '
+    'We can\'t stop the storms — but we can stop scheduling pilots into the path of every '
+    'one of them. StormChain identifies the 1,220 specific pair-month combinations worth '
+    'avoiding and offers a safer alternative for each.'
+    '</p>'
+    '<div class="closing-ascii">'
+    '<span class="line-ok">[ OK ]</span> Data pipeline — 842K flights, 3.5M weather obs, 3.3M METAR<br>'
+    '<span class="line-ok">[ OK ]</span> Model trained — XGBoost AUC-ROC 0.81, +78% vs. naive baseline<br>'
+    '<span class="line-ok">[ OK ]</span> Risk scoring — 37,920 pair-month scores, monthly granularity<br>'
+    '<span class="line-ok">[ OK ]</span> Avoid list — 1,220 recommendations across 4 seasons<br>'
+    '<span class="line-ok">[ OK ]</span> Swap alternatives — 294 safer pairings, AA already flies all of them<br>'
+    '<span class="line-info">[ LIVE ]</span> Dashboard — deployed, inspectable, ready for integration<br><br>'
+    '<span class="line-info">// next step: plug into crew scheduling system</span><br>'
+    '<span class="line-info">// next step: extend to CLT, MIA, ORD, PHX, PHL hubs</span><br>'
+    '<span class="line-info">// next step: live TAF forecasts for forward-looking scheduling</span>'
+    '</div>'
+    '<div class="closing-cta">'
+    'STORMCHAIN · EPPS-AMERICAN AIRLINES DATA CHALLENGE · GROW 26.2<br>'
+    '<a href="https://github.com/drPod/stormchain" target="_blank">github.com/drPod/stormchain</a> · '
+    '<a href="https://stormchain.streamlit.app" target="_blank">stormchain.streamlit.app</a>'
+    '</div>'
+    '</div>'
+)
+st.markdown(_closing_html, unsafe_allow_html=True)
